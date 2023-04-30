@@ -17,7 +17,11 @@ let res = () => {
           let songTitle = myArray[3];
           //console.log(myArray[3]);
           document.getElementById("currentsongtitletext").textContent = songTitle;
+        }else{
+          document.getElementById("currentsongtitletext").textContent = "OFFLINE";
         }
+      }else {
+        document.getElementById("currentsongtitletext").textContent = "OFFLINE";
       }
     })
     .catch(function (err) {
