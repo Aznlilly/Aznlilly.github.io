@@ -9,13 +9,13 @@ let res = () => {
       return response.text();
     })
     .then(function (html) {
-      console.log(html);
+      //console.log(html);
 
       let myArray = re.exec(html);
       if (myArray !== null) {
         if (myArray.length > 0) {
           let songTitle = myArray[3];
-          console.log(myArray[3]);
+          //console.log(myArray[3]);
           document.getElementById("currentsongtitle").textContent = songTitle;
         }
       }
