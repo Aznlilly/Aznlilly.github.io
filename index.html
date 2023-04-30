@@ -1,16 +1,23 @@
 <html>
-    <head>
-        <script src="songtitle.js"></script>
-        <style>
-        body {
-          background-color: rgb(207, 168, 171);
-        }
-        </style>
-    </head>
-    <body>
-        <audio controls autoplay>
-            <source src="http://music.pixelhumble.com:8000/stream" type="audio/mpeg">
-        </audio>
-        <h2>Song Title: <span id="currentsongtitle"></span></h2>
-    </body>
+
+<head>
+    <script src="songtitle.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+    <audio controls autoplay>
+        <source src="http://music.pixelhumble.com:8000/stream" type="audio/mpeg">
+    </audio>
+    <div id="TitleContainer">
+        <h3>Song:
+            <div id="scroll-container">
+                <div id="scroll-text">
+                    <span id="currentsongtitletext"></span>
+                </div>
+            </div>
+        </h3>
+    </div>
+</body>
+
 </html>
