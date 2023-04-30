@@ -1,5 +1,5 @@
 const re = new RegExp(
-  '(<td>Current Song:</td>)[\n|\r](<td class="streamdata">)(.+)(</td>)'
+  '(<td>Currently playing:<\/td>)[\n|\r](<td class="streamstats">)(.+)(<\/td>)'
 );
 
 let res = () => {
@@ -9,15 +9,15 @@ let res = () => {
       return response.text();
     })
     .then(function (html) {
-
       console.log(html);
 
-
       let myArray = re.exec(html);
-      if (myArray.length > 0) {
-        let songTitle = myArray[3];
-        console.log(myArray[3]);
-        document.getElementById("currentsongtitle").textContent = songTitle;
+      if (myArray !== null) {
+        if (myArray.length > 0) {
+          let songTitle = myArray[3];
+          console.log(myArray[3]);
+          document.getElementById("currentsongtitle").textContent = songTitle;
+        }
       }
     })
     .catch(function (err) {
