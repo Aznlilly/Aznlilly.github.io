@@ -16,7 +16,7 @@ let res = () => {
         if (myArray.length > 0) {
           let songTitle = myArray[3];
           //console.log(myArray[3]);
-          document.getElementById("currentsongtitle").textContent = songTitle;
+          document.getElementById("currentsongtitletext").textContent = songTitle;
         }
       }
     })
