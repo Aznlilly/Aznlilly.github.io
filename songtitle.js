@@ -3,7 +3,7 @@ const re = new RegExp(
 );
 
 let res = () => {
-  fetch("http://music.pixelhumble.com:8000/")
+  fetch("https://music.pixelhumble.com/")
     .then(function (response) {
       // When the page is loaded convert it to text
       return response.text();
