@@ -1,28 +1,19 @@
-const re = new RegExp(
-  '(<td>Currently playing:<\/td>)[\n|\r](<td class="streamstats">)(.+)(<\/td>)'
-);
+var mountPoint = window.location.pathname.split('/')[1];
+
+async function songTitle(mountPoint) {
+
+  const response = await fetch("https://music.pixelhumble.com/status-json.xsl");
+  icecast_stats = await response.json();  
+  var filtered = icecast_stats.icestats.source.filter(function (str) { if (str.listenurl.indexOf(mountPoint) > 0) return str.title; });
+  if (!Array.isArray(filtered) || !filtered.length) {
+    return "OFFLINE";
+  } 
+  var title = filtered[0].title;
+  return title;
+}
 
 let res = () => {
-  fetch("https://music.pixelhumble.com/")
-    .then(function (response) {
-      // When the page is loaded convert it to text
-      return response.text();
-    })
-    .then(function (html) {
-      //console.log(html);
-
-      let myArray = re.exec(html);
-      if (myArray !== null) {
-        if (myArray.length > 0) {
-          let songTitle = myArray[3];
-          //console.log(myArray[3]);
-          document.getElementById("currentsongtitletext").textContent = songTitle;
-        }else{
-          document.getElementById("currentsongtitletext").textContent = "OFFLINE";
-        }
-      }else {
-        document.getElementById("currentsongtitletext").textContent = "OFFLINE";
-      }
+        document.getElementById("currentsongtitletext").textContent = songTitle(mountPoint);
     })
     .catch(function (err) {
       console.log("Failed to fetch page: ", err);
@@ -31,4 +22,4 @@ let res = () => {
 
 const interval = setInterval(() => {
   res();
-}, 8000);
+}, 5000);
