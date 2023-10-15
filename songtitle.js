@@ -23,7 +23,7 @@ async function songTitle(mountPoint) {
 async function setTitle(mountPoint) {
   var title = "OFFLINE";
   title = await songTitle(mountPoint);
-  document.getElementById("currentsongtitletext").textContent = title + "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+  document.getElementById("currentsongtitletext").textContent = title + "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
 }
 
 function sleep(fn, par) {
