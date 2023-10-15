@@ -18,14 +18,15 @@ body {
     /*border-radius: 5px;*/
     margin-left: 5px;
     overflow: hidden;
-    white-space: preserve nowrap;
+    white-space: nowrap;
+    white-space-collapse: preserve-spaces;
     min-width: 220;
 }
 
 #scroll-text {
     /* animation properties */
-    white-space: preserve nowrap;
-    white-space-collapse: preserve;
+    white-space: nowrap;
+    white-space-collapse: preserve-spaces;
     /*overflow: hidden;*/
     -moz-transform: translateX(100%);
     -webkit-transform: translateX(100%);
