@@ -25,6 +25,7 @@ body {
 #scroll-text {
     /* animation properties */
     white-space: nowrap;
+    white-space-collapse: preserve;
     /*overflow: hidden;*/
     -moz-transform: translateX(100%);
     -webkit-transform: translateX(100%);
