@@ -7,7 +7,11 @@ async function songTitle(mountPoint) {
   console.log("icecast_stats: \n");
   console.log(icecast_stats);
   if(!Array.isArray(icecast_stats.icestats.source)){
-    return icecast_stats.icestats.source.title
+    if(icecast_status.icestats.source.listenurl.indexOf(mountPoint) > 0){
+      return icecast_stats.icestats.source.title
+    }else{
+    return "OFFLINE";
+    }
   }  
   var filtered = await icecast_stats.icestats.source.filter(function (str) { if (str.listenurl.indexOf(mountPoint) > 0) return str.title; });
   console.log("filtered: \n");
