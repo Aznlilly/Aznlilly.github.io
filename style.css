@@ -17,7 +17,7 @@ body {
     /*border: 3px solid black;*/
     /*border-radius: 5px;*/
     margin-left: 5px;
-    overflow: hidden;
+    /*overflow: hidden;*/
     white-space: nowrap;
     min-width: 220;
 }
@@ -25,7 +25,7 @@ body {
 #scroll-text {
     /* animation properties */
     white-space: nowrap;
-    overflow: hidden;
+    /*overflow: hidden;*/
     -moz-transform: translateX(100%);
     -webkit-transform: translateX(100%);
     transform: translateX(100%);
