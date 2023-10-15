@@ -12,7 +12,7 @@ async function songTitle(mountPoint) {
   return title;
 }
 
-let res = () => {
+async function res() {
   document.getElementById("currentsongtitletext").textContent = songTitle(mountPoint);
 };
 
