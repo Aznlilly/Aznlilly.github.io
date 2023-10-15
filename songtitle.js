@@ -13,11 +13,7 @@ async function songTitle(mountPoint) {
 }
 
 let res = () => {
-        document.getElementById("currentsongtitletext").textContent = songTitle(mountPoint);
-    }
-    .catch(function (err) {
-      console.log("Failed to fetch page: ", err);
-    });
+  document.getElementById("currentsongtitletext").textContent = songTitle(mountPoint);
 };
 
 const interval = setInterval(() => {
