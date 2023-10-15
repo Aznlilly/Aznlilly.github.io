@@ -12,10 +12,17 @@ async function songTitle(mountPoint) {
   return title;
 }
 
-async function res() {
-  document.getElementById("currentsongtitletext").textContent = songTitle(mountPoint);
-};
+async function setTitle(mountPoint){
+  var title = "OFFLINE"
+  await title = songTitle(mountPoint);
+  await document.getElementById("currentsongtitletext").textContent = title;
+}
 
-const interval = setInterval(() => {
-  res();
-}, 5000);
+function sleep (fn, par) {
+  return new Promise((resolve) => {
+    // wait 3s before calling fn(par)
+    setTimeout(() => resolve(fn(par)), 3000)
+  })
+}
+
+sleep(setTitle, mountPoint)
