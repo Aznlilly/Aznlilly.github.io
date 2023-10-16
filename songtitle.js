@@ -27,13 +27,17 @@ async function setTitle(mountPoint) {
   var title = "OFFLINE";
   title = await songTitle(mountPoint);
   document.getElementById("currentsongtitletext").textContent = title;
+
+  try {
+    var title = "OFFLINE";
+    title = await songTitle(mountPoint);
+    document.getElementById("currentsongtitletext").textContent = title;
+  } catch (err) {
+    console.error("Error in setTitle: %o", err);
+    if (intervalTimerId) {
+      window.clearInterval(intervalTimerId);
+    }
+  }
 }
 
-function sleep(fn, par) {
-  return new Promise((resolve) => {
-    // wait 3s before calling fn(par)
-    setTimeout(() => resolve(fn(par)), 3000);
-  });
-}
-
-sleep(setTitle, mountPoint);
+intervalTimerId = window.setInterval(setTitle, 3 * 1000, mountPoint);
