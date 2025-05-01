@@ -43,6 +43,11 @@ body {
   width: 2rem;
 }
 
+#scroll-container:hover #scroll-text {
+  animation-play-state: paused;
+  cursor: pointer;
+}
+
 #player-container {
   display: flex;
   align-items: center;
