@@ -148,11 +148,13 @@ audio {
 
 #volume-slider {
   position: absolute;
-  right: 50%;
-  top: -120px;
-  transform: rotate(-90deg);
-  transform-origin: center;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100px;
+  height: 6px;
+  writing-mode: bt-lr; /* vertical without rotate */
+  appearance: slider-vertical;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -161,4 +163,13 @@ audio {
 #volume-slider.visible {
   opacity: 1;
   pointer-events: auto;
+}
+
+#volume-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+#volume-slider::-webkit-slider-runnable-track {
+  width: 6px;
 }
