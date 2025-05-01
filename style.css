@@ -12,17 +12,23 @@ body {
 }
 
 #scroll-container {
+  position: relative;
   width: 220px;
   overflow: hidden;
   white-space: nowrap;
   margin-left: 5px;
-  position: relative;
+  cursor: pointer;
 }
 
 #scroll-text {
   display: inline-block;
   white-space: nowrap;
   animation: scroll-marquee 15s linear infinite;
+  animation-play-state: running;
+}
+
+#scroll-container:hover #scroll-text {
+  animation-play-state: paused;
 }
 
 @keyframes scroll-marquee {
@@ -43,9 +49,25 @@ body {
   width: 2rem;
 }
 
-#scroll-container:hover #scroll-text {
-  animation-play-state: paused;
-  cursor: pointer;
+#copy-tooltip {
+  position: absolute;
+  top: -1.2em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+#copy-tooltip.visible {
+  opacity: 1;
 }
 
 #player-container {
