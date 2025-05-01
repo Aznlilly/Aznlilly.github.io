@@ -75,25 +75,28 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  max-width: 600px;
-  margin: 1rem auto;
+  margin: 1rem 0 1rem 1rem; /* Top & bottom margin, left-aligned */
   padding: 1rem;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  width: fit-content; /* Shrink-wrap content width */
 }
 
 #player-left {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 300px; /* Limit the width of audio + title block */
 }
 
 audio {
-  width: 100%;
+  width: 150px; /* Make audio bar less wide */
 }
 
 #albumart {
-  width: 96px;
-  height: 96px;
+  width: 140px;  /* Slightly larger */
+  height: 140px;
   object-fit: cover;
   border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
