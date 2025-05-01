@@ -21,7 +21,9 @@
   </head>
   <body>
     <div id="copy-tooltip">Copied!</div>
-
+    <div id="startup-overlay">
+      <div id="startup-message">Click to start stream</div>
+    </div>
     <div id="player-container">
       <div id="player-left">
         <div class="custom-audio-player">
@@ -99,30 +101,59 @@
       const volumeContainer = document.querySelector(
         ".volume-slider-container"
       );
+      const overlay = document.getElementById("startup-overlay");
+      const playerContainer = document.getElementById("player-container");
+      const albumArt = document.getElementById("albumart");
+      const titleBlock = document.getElementById("TitleContainer");
 
-      // Default: stream is paused
-      playBtn.textContent = "▶";
+      // Initialize volume
       audio.volume = 1;
       volumeSlider.value = 1;
+      playBtn.textContent = "▶";
 
-      // Toggle play/pause
+      function fadeInUI() {
+        overlay.classList.add("hidden");
+        playerContainer.classList.add("visible");
+        titleBlock.classList.add("visible");
+        albumArt.classList.add("visible");
+      }
+
+      function startStream() {
+        audio.volume = 0;
+        audio
+          .play()
+          .then(() => {
+            playBtn.textContent = "❚❚";
+            fadeInUI();
+
+            // Fade volume in
+            let vol = 0;
+            const fade = setInterval(() => {
+              if (vol < 1) {
+                vol += 0.05;
+                audio.volume = Math.min(vol, 1);
+                volumeSlider.value = audio.volume;
+              } else {
+                clearInterval(fade);
+              }
+            }, 80);
+          })
+          .catch((err) => {
+            console.warn("Autoplay failed:", err);
+          });
+      }
+
+      overlay.addEventListener("click", startStream);
+
       playBtn.addEventListener("click", () => {
         if (audio.paused) {
-          audio
-            .play()
-            .then(() => {
-              playBtn.textContent = "❚❚";
-            })
-            .catch((err) => {
-              console.warn("Play failed:", err);
-            });
+          startStream();
         } else {
           audio.pause();
           playBtn.textContent = "▶";
         }
       });
 
-      // Volume slider toggle
       volumeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         volumeContainer.classList.toggle("visible");
@@ -132,7 +163,6 @@
         audio.volume = volumeSlider.value;
       });
 
-      // Hide volume if clicking outside
       document.addEventListener("click", (e) => {
         if (
           !volumeContainer.contains(e.target) &&
