@@ -1,5 +1,5 @@
 var mountPoint = window.location.pathname.split("/")[1];
-const defaultAlbumArt = "./default-art.jpg"; // path relative to songtitle.js
+const defaultAlbumArt = "/default-art.jpg"; // ✅ absolute path from root
 
 async function songTitle(mountPoint) {
   const response = await fetch("https://music.pixelhumble.com/status-json.xsl");
