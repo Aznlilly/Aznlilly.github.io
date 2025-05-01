@@ -146,30 +146,43 @@ audio {
   position: relative;
 }
 
-#volume-slider {
+.volume-slider-container {
   position: absolute;
-  bottom: 120%;
+  bottom: 150%;
   left: 50%;
   transform: translateX(-50%);
-  width: 100px;
-  height: 6px;
-  writing-mode: bt-lr; /* vertical without rotate */
-  appearance: slider-vertical;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  display: none;
 }
 
-#volume-slider.visible {
-  opacity: 1;
-  pointer-events: auto;
+.volume-slider-container.visible {
+  display: block;
+}
+
+#volume-slider {
+  width: 100px;
+  height: 6px;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  appearance: none;
+  background: #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
 }
 
 #volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  background: #333;
+  border-radius: 50%;
   width: 12px;
   height: 12px;
+  border: none;
 }
 
-#volume-slider::-webkit-slider-runnable-track {
-  width: 6px;
+#volume-slider::-moz-range-thumb {
+  background: #333;
+  border: none;
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
 }
