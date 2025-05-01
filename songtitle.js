@@ -36,19 +36,20 @@ async function setTitle(mountPoint) {
   try {
     const title = await songTitle(mountPoint);
     if (!title) {
-      document.getElementById("currentsongtitletext").textContent = "OFFLINE";
+      document.getElementById("scroll-title").textContent = "OFFLINE";
       document.getElementById("albumart").src = "default-art.jpg";
       return;
     }
 
-    document.getElementById("currentsongtitletext").textContent = title;
-    document.getElementById("currentsongtitletext-clone").textContent = title;
+    document.getElementById("scroll-title").textContent = title;
+    document.getElementById("scroll-title-clone").textContent = title;
+
 
     const artUrl = await fetchAlbumArt(title);
     document.getElementById("albumart").src = artUrl;
   } catch (err) {
     console.error("Error in setTitle:", err);
-    document.getElementById("currentsongtitletext").textContent = "OFFLINE";
+    document.getElementById("scroll-title").textContent = "OFFLINE";
     document.getElementById("albumart").src = "default-art.jpg";
   }
 }
