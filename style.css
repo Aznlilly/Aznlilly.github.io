@@ -72,39 +72,29 @@ body {
 }
 
 #player-container {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    max-width: 600px;
-    margin: 0 auto;
-    background-color: #f8f8f8;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 600px;
+  margin: 1rem auto;
+  padding: 1rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-#left-panel {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    gap: 0.5rem;
+#player-left {
+  flex: 1;
 }
 
 audio {
-    width: 100%;
-}
-
-#art-container {
-    flex-shrink: 0;
+  width: 100%;
 }
 
 #albumart {
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
-
-
