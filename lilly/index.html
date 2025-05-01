@@ -104,29 +104,53 @@
       audio.volume = 1;
       volumeSlider.value = 1;
 
-      // Toggle play/pause
+      function updatePlayButton() {
+        playBtn.textContent = audio.paused ? "▶" : "❚❚";
+      }
+
+      // Attempt autoplay once user interacts
+      function tryAutoplay() {
+        audio
+          .play()
+          .then(() => {
+            updatePlayButton();
+          })
+          .catch((err) => {
+            console.warn("Autoplay blocked:", err);
+            updatePlayButton(); // reflect paused state
+          });
+      }
+
+      // Try autoplay when page loads (some browsers allow it if muted)
+      tryAutoplay();
+
+      // Retry on user click anywhere
+      document.addEventListener("click", function onceUserInteracts() {
+        tryAutoplay();
+        document.removeEventListener("click", onceUserInteracts);
+      });
+
       playBtn.addEventListener("click", () => {
         if (audio.paused) {
-          audio.play();
-          playBtn.textContent = "❚❚";
+          audio.play().then(updatePlayButton);
         } else {
           audio.pause();
-          playBtn.textContent = "▶";
+          updatePlayButton();
         }
       });
 
-      // Toggle volume visibility
+      // Toggle volume slider
       volumeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         volumeContainer.classList.toggle("visible");
       });
 
-      // Volume update
+      // Adjust volume
       volumeSlider.addEventListener("input", () => {
         audio.volume = volumeSlider.value;
       });
 
-      // Click outside to hide
+      // Hide volume slider on outside click
       document.addEventListener("click", (e) => {
         if (
           !volumeContainer.contains(e.target) &&
@@ -135,9 +159,6 @@
           volumeContainer.classList.remove("visible");
         }
       });
-
-      // Try to autoplay
-      audio.play().catch((err) => console.warn("Autoplay blocked:", err));
     </script>
   </body>
 </html>
