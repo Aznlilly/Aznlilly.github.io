@@ -67,8 +67,20 @@ document.getElementById("scroll-container").addEventListener("click", () => {
   const text = titleEl.textContent.trim();
   if (!text) return;
 
-  navigator.clipboard.writeText(text)
-    .then(() => console.log("Copied to clipboard:", text))
-    .catch(err => console.warn("Clipboard copy failed:", err));
+  navigator.clipboard.writeText(text).then(() => {
+    console.log("Copied to clipboard:", text);
+
+    // Show tooltip
+    const tooltip = document.getElementById("copy-tooltip");
+    tooltip.classList.add("visible");
+
+    // Hide after 1.5 seconds
+    setTimeout(() => {
+      tooltip.classList.remove("visible");
+    }, 1500);
+  }).catch(err => {
+    console.warn("Clipboard copy failed:", err);
+  });
 });
+
 
