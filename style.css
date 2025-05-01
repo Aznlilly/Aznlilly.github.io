@@ -91,7 +91,7 @@ body {
 }
 
 audio {
-  width: 150px; /* Make audio bar less wide */
+  width: 200px; /* Make audio bar less wide */
 }
 
 #albumart {
