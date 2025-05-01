@@ -120,20 +120,42 @@
         albumArt.classList.add("visible");
       }
 
+      function updateScrollTitles(text) {
+        const titleElements = document.querySelectorAll(".scroll-title");
+        titleElements.forEach((el) => (el.textContent = text));
+      }
+
       function startStream() {
         message.textContent = "Loading stream...";
         spinner.classList.add("visible");
 
+        let timedOut = false;
+
+        // 10 second fallback timer
+        const fallbackTimer = setTimeout(() => {
+          timedOut = true;
+          spinner.classList.remove("visible");
+          message.textContent = "Stream is offline.";
+          updateScrollTitles("OFFLINE");
+          albumArt.src = "../default-art.jpg";
+          fadeInUI();
+        }, 10000);
+
+        // Attempt to play
         audio
           .play()
           .then(() => {
+            if (timedOut) return; // prevent UI flashing if fallback already triggered
+            clearTimeout(fallbackTimer);
             playBtn.textContent = "❚❚";
             fadeInUI();
           })
           .catch((err) => {
+            if (timedOut) return;
+            clearTimeout(fallbackTimer);
             console.warn("Stream play failed:", err);
-            message.textContent = "Click to try again";
             spinner.classList.remove("visible");
+            message.textContent = "Click to try again";
           });
       }
 
