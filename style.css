@@ -12,17 +12,17 @@ body {
 }
 
 #scroll-container {
-  margin-left: 5px;
+  width: 220px;
   overflow: hidden;
   white-space: nowrap;
-  width: 220px;
+  margin-left: 5px;
+  position: relative;
 }
 
 #scroll-text {
   display: inline-block;
   white-space: nowrap;
-  will-change: transform;
-  animation: scroll-marquee 12s linear infinite;
+  animation: scroll-marquee 10s linear infinite;
 }
 
 @keyframes scroll-marquee {
