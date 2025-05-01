@@ -58,3 +58,17 @@ async function setTitle(mountPoint) {
 }
 
 const intervalTimerId = window.setInterval(setTitle, 3000, mountPoint);
+
+// Enable click-to-copy on scroll-container
+document.getElementById("scroll-container").addEventListener("click", () => {
+  const titleEl = document.querySelector(".scroll-title");
+  if (!titleEl) return;
+
+  const text = titleEl.textContent.trim();
+  if (!text) return;
+
+  navigator.clipboard.writeText(text)
+    .then(() => console.log("Copied to clipboard:", text))
+    .catch(err => console.warn("Clipboard copy failed:", err));
+});
+
