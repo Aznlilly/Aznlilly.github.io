@@ -5,12 +5,11 @@ async function songTitle(mountPoint) {
   const stats = await response.json();
 
   let sources = stats.icestats.source;
-  if (!sources) return "OFFLINE";
-
+  if (!sources) return null;
   if (!Array.isArray(sources)) sources = [sources];
 
   const match = sources.find((s) => s.listenurl.includes(mountPoint));
-  if (!match || !match.title) return "OFFLINE";
+  if (!match || !match.title) return null;
 
   return match.title;
 }
@@ -24,33 +23,33 @@ async function fetchAlbumArt(title) {
     const data = await res.json();
 
     if (data.resultCount > 0) {
-      return data.results[0].artworkUrl100.replace('100x100', '300x300');
+      return data.results[0].artworkUrl100.replace("100x100", "300x300");
     }
   } catch (err) {
     console.warn("Album art fetch failed:", err);
   }
 
-  return "default-art.jpg";  // Fallback path, relative to songtitle.js
+  return "default-art.jpg"; // path relative to songtitle.js
 }
-
 
 async function setTitle(mountPoint) {
   try {
     const title = await songTitle(mountPoint);
+    if (!title) {
+      document.getElementById("currentsongtitletext").textContent = "OFFLINE";
+      document.getElementById("albumart").src = "default-art.jpg";
+      return;
+    }
+
     document.getElementById("currentsongtitletext").textContent = title;
 
-    const art = await fetchAlbumArt(title);
-    document.getElementById("albumart").src = art;
+    const artUrl = await fetchAlbumArt(title);
+    document.getElementById("albumart").src = artUrl;
   } catch (err) {
     console.error("Error in setTitle:", err);
     document.getElementById("currentsongtitletext").textContent = "OFFLINE";
     document.getElementById("albumart").src = "default-art.jpg";
-
-    if (intervalTimerId) {
-      window.clearInterval(intervalTimerId);
-    }
   }
 }
 
-
-intervalTimerId = window.setInterval(setTitle, 3 * 1000, mountPoint);
+const intervalTimerId = window.setInterval(setTitle, 3000, mountPoint);
