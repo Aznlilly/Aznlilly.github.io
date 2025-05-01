@@ -1,4 +1,5 @@
 var mountPoint = window.location.pathname.split("/")[1];
+const defaultAlbumArt = "./default-art.jpg"; // path relative to songtitle.js
 
 async function songTitle(mountPoint) {
   const response = await fetch("https://music.pixelhumble.com/status-json.xsl");
@@ -29,7 +30,7 @@ async function fetchAlbumArt(title) {
     console.warn("Album art fetch failed:", err);
   }
 
-  return "default-art.jpg";
+  return defaultAlbumArt;
 }
 
 function updateScrollTitles(text) {
@@ -42,18 +43,18 @@ async function setTitle(mountPoint) {
     const title = await songTitle(mountPoint);
     if (!title) {
       updateScrollTitles("OFFLINE");
-      document.getElementById("albumart").src = "default-art.jpg";
+      document.getElementById("albumart").src = defaultAlbumArt;
       return;
     }
 
     updateScrollTitles(title);
 
     const artUrl = await fetchAlbumArt(title);
-    document.getElementById("albumart").src = artUrl;
+    document.getElementById("albumart").src = artUrl || defaultAlbumArt;
   } catch (err) {
     console.error("Error in setTitle:", err);
     updateScrollTitles("OFFLINE");
-    document.getElementById("albumart").src = "default-art.jpg";
+    document.getElementById("albumart").src = defaultAlbumArt;
   }
 }
 
@@ -84,6 +85,3 @@ document.getElementById("scroll-container").addEventListener("click", (e) => {
     console.warn("Clipboard copy failed:", err);
   });
 });
-
-
-
