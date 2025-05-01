@@ -197,9 +197,11 @@ audio {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   z-index: 999;
   cursor: pointer;
   transition: opacity 0.4s ease;
+  text-align: center;
 }
 
 #startup-overlay.hidden {
@@ -209,7 +211,6 @@ audio {
 }
 
 #startup-message {
-  text-align: center;
   padding: 1rem 2rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
@@ -236,8 +237,8 @@ audio {
   border-top: 4px solid white;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-top: 1rem;
   display: none;
+  margin-top: 1rem;
 }
 
 #loading-spinner.visible {
