@@ -42,6 +42,7 @@ async function setTitle(mountPoint) {
     }
 
     document.getElementById("currentsongtitletext").textContent = title;
+    document.getElementById("currentsongtitletext-clone").textContent = title;
 
     const artUrl = await fetchAlbumArt(title);
     document.getElementById("albumart").src = artUrl;
