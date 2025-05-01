@@ -29,27 +29,30 @@ async function fetchAlbumArt(title) {
     console.warn("Album art fetch failed:", err);
   }
 
-  return "default-art.jpg"; // path relative to songtitle.js
+  return "default-art.jpg";
+}
+
+function updateScrollTitles(text) {
+  const titleElements = document.querySelectorAll(".scroll-title");
+  titleElements.forEach(el => el.textContent = text);
 }
 
 async function setTitle(mountPoint) {
   try {
     const title = await songTitle(mountPoint);
     if (!title) {
-      document.getElementById("scroll-title").textContent = "OFFLINE";
+      updateScrollTitles("OFFLINE");
       document.getElementById("albumart").src = "default-art.jpg";
       return;
     }
 
-    document.getElementById("scroll-title").textContent = title;
-    document.getElementById("scroll-title-clone").textContent = title;
-
+    updateScrollTitles(title);
 
     const artUrl = await fetchAlbumArt(title);
     document.getElementById("albumart").src = artUrl;
   } catch (err) {
     console.error("Error in setTitle:", err);
-    document.getElementById("scroll-title").textContent = "OFFLINE";
+    updateScrollTitles("OFFLINE");
     document.getElementById("albumart").src = "default-art.jpg";
   }
 }
