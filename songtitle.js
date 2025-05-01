@@ -24,15 +24,15 @@ async function fetchAlbumArt(title) {
     const data = await res.json();
 
     if (data.resultCount > 0) {
-      // Upgrade artwork to higher resolution
       return data.results[0].artworkUrl100.replace('100x100', '300x300');
     }
   } catch (err) {
     console.warn("Album art fetch failed:", err);
   }
 
-  return "default-art.jpg";
+  return "default-art.jpg";  // Fallback path, relative to songtitle.js
 }
+
 
 async function setTitle(mountPoint) {
   try {
