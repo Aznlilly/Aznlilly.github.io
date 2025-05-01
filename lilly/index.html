@@ -100,57 +100,39 @@
         ".volume-slider-container"
       );
 
-      // Set initial volume
+      // Default: stream is paused
+      playBtn.textContent = "▶";
       audio.volume = 1;
       volumeSlider.value = 1;
 
-      function updatePlayButton() {
-        playBtn.textContent = audio.paused ? "▶" : "❚❚";
-      }
-
-      // Attempt autoplay once user interacts
-      function tryAutoplay() {
-        audio
-          .play()
-          .then(() => {
-            updatePlayButton();
-          })
-          .catch((err) => {
-            console.warn("Autoplay blocked:", err);
-            updatePlayButton(); // reflect paused state
-          });
-      }
-
-      // Try autoplay when page loads (some browsers allow it if muted)
-      tryAutoplay();
-
-      // Retry on user click anywhere
-      document.addEventListener("click", function onceUserInteracts() {
-        tryAutoplay();
-        document.removeEventListener("click", onceUserInteracts);
-      });
-
+      // Toggle play/pause
       playBtn.addEventListener("click", () => {
         if (audio.paused) {
-          audio.play().then(updatePlayButton);
+          audio
+            .play()
+            .then(() => {
+              playBtn.textContent = "❚❚";
+            })
+            .catch((err) => {
+              console.warn("Play failed:", err);
+            });
         } else {
           audio.pause();
-          updatePlayButton();
+          playBtn.textContent = "▶";
         }
       });
 
-      // Toggle volume slider
+      // Volume slider toggle
       volumeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         volumeContainer.classList.toggle("visible");
       });
 
-      // Adjust volume
       volumeSlider.addEventListener("input", () => {
         audio.volume = volumeSlider.value;
       });
 
-      // Hide volume slider on outside click
+      // Hide volume if clicking outside
       document.addEventListener("click", (e) => {
         if (
           !volumeContainer.contains(e.target) &&
