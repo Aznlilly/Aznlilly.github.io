@@ -50,20 +50,18 @@ body {
 }
 
 #copy-tooltip {
-  position: absolute;
-  top: -1.2em;
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
   background: #333;
   color: #fff;
-  padding: 2px 8px;
-  font-size: 0.75rem;
+  padding: 4px 10px;
+  font-size: 0.8rem;
   border-radius: 4px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
   white-space: nowrap;
-  z-index: 10;
+  z-index: 1000;
+  transform: translate(-50%, -150%);
 }
 
 #copy-tooltip.visible {
