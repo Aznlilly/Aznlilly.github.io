@@ -73,41 +73,38 @@ body {
 
 #player-container {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
     gap: 1rem;
-    max-width: 700px;
+    padding: 1rem;
+    max-width: 600px;
     margin: 0 auto;
+    background-color: #f8f8f8;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-#right-panel {
+#left-panel {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
     flex: 1;
-}
-
-#albumart {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    gap: 0.5rem;
 }
 
 audio {
     width: 100%;
 }
 
-#TitleContainer {
-    max-width: 100%;
+#art-container {
+    flex-shrink: 0;
 }
 
-#scroll-container {
-    margin-left: 5px;
-    overflow: hidden;
-    white-space: nowrap;
-    min-width: 220px;
+#albumart {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
+
 
