@@ -1,25 +1,22 @@
-<html>
-
-<head>
-    <script src="../songtitle.js"></script>
-    <link rel="stylesheet" type="text/css" href="../style.css">
-</head>
-
 <body>
-    <audio controls autoplay preload="none">
+  <div id="player-container">
+    <div id="left-panel">
+      <audio controls autoplay preload="none">
         <source src="https://music.pixelhumble.com/lilly" type="audio/mpeg" />
-    </audio>
-    <div id="TitleContainer">
-        <h3>
-            <div id="flexcontainer">Song:
-                <div id="scroll-container">
-                    <div id="scroll-text">
-                        <span id="currentsongtitletext">LOADING...</span>
-                    </div>
-                </div>
+      </audio>
+      <div id="TitleContainer">
+        <div id="flexcontainer">
+          <strong>Song:</strong>
+          <div id="scroll-container">
+            <div id="scroll-text">
+              <span id="currentsongtitletext">LOADING...</span>
             </div>
-        </h3>
+          </div>
+        </div>
+      </div>
     </div>
+    <div id="art-container">
+      <img id="albumart" src="../default-art.jpg" alt="Album Art" />
+    </div>
+  </div>
 </body>
-
-</html>
