@@ -1,101 +1,69 @@
 body {
-    background-color: rgb(207, 168, 171);
+  background-color: rgb(207, 168, 171);
 }
 
 #flexcontainer {
-    display: flex;
-    /* or inline-flex */
-
+  display: flex;
 }
 
 #TitleContainer {
-    max-width: 300px;
-    width: 300px;
+  max-width: 300px;
+  width: 300px;
 }
 
 #scroll-container {
-    /*border: 3px solid black;*/
-    /*border-radius: 5px;*/
-    margin-left: 5px;
-    overflow: hidden;
-    white-space: nowrap;
-    min-width: 220;
+  margin-left: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 220px;
 }
 
 #scroll-text {
-    /* animation properties */
-    white-space: nowrap;
-    /*overflow: hidden;*/
-    -moz-transform: translateX(100%);
-    -webkit-transform: translateX(100%);
-    transform: translateX(100%);
-
-    -moz-animation: my-animation 10s linear infinite;
-    -webkit-animation: my-animation 10s linear infinite;
-    animation: my-animation 10s linear infinite;
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+  animation: scroll-marquee 12s linear infinite;
 }
 
-/* for Firefox */
-@-moz-keyframes my-animation {
-    from {
-        -moz-transform: translateX(100%);
-    }
-
-    to {
-        -moz-transform: translateX(-100%);
-    }
+@keyframes scroll-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
-/* for Chrome */
-@-webkit-keyframes my-animation {
-    from {
-        -webkit-transform: translateX(100%);
-    }
-
-    to {
-        -webkit-transform: translateX(-100%);
-    }
-}
-
-@keyframes my-animation {
-    from {
-        -moz-transform: translateX(100%);
-        -webkit-transform: translateX(100%);
-        transform: translateX(100%);
-    }
-
-    to {
-        -moz-transform: translateX(-100%);
-        -webkit-transform: translateX(-100%);
-        transform: translateX(-100%);
-    }
+.spacer {
+  display: inline-block;
+  width: 2rem;
 }
 
 #player-container {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin: 1rem 0 1rem 1rem; /* Top & bottom margin, left-aligned */
+  margin: 1rem 0 1rem 1rem;
   padding: 1rem;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  width: fit-content; /* Shrink-wrap content width */
+  width: fit-content;
 }
 
 #player-left {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-width: 300px; /* Limit the width of audio + title block */
+  max-width: 300px;
 }
 
 audio {
-  width: 230px; /* Make audio bar less wide */
+  width: 230px;
 }
 
 #albumart {
-  width: 170px;  /* Slightly larger */
+  width: 170px;
   height: 170px;
   object-fit: cover;
   border-radius: 6px;
