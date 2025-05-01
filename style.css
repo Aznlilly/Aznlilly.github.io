@@ -23,7 +23,7 @@ body {
 #scroll-text {
   display: inline-block;
   white-space: nowrap;
-  animation: scroll-marquee 15s linear infinite;
+  animation: scroll-marquee 25s linear infinite;
   animation-play-state: running;
 }
 
