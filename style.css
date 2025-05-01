@@ -70,3 +70,44 @@ body {
         transform: translateX(-100%);
     }
 }
+
+#player-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    gap: 1rem;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+#right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+#albumart {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+audio {
+    width: 100%;
+}
+
+#TitleContainer {
+    max-width: 100%;
+}
+
+#scroll-container {
+    margin-left: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    min-width: 220px;
+}
+
