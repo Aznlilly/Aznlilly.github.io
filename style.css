@@ -91,12 +91,12 @@ body {
 }
 
 audio {
-  width: 200px; /* Make audio bar less wide */
+  width: 230px; /* Make audio bar less wide */
 }
 
 #albumart {
-  width: 140px;  /* Slightly larger */
-  height: 140px;
+  width: 170px;  /* Slightly larger */
+  height: 170px;
   object-fit: cover;
   border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
