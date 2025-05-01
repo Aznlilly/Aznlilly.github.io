@@ -60,7 +60,7 @@ async function setTitle(mountPoint) {
 const intervalTimerId = window.setInterval(setTitle, 3000, mountPoint);
 
 // Enable click-to-copy on scroll-container
-document.getElementById("scroll-container").addEventListener("click", () => {
+document.getElementById("scroll-container").addEventListener("click", (e) => {
   const titleEl = document.querySelector(".scroll-title");
   if (!titleEl) return;
 
@@ -68,10 +68,12 @@ document.getElementById("scroll-container").addEventListener("click", () => {
   if (!text) return;
 
   navigator.clipboard.writeText(text).then(() => {
-    console.log("Copied to clipboard:", text);
-
-    // Show tooltip
     const tooltip = document.getElementById("copy-tooltip");
+
+    // Position it near the mouse
+    tooltip.style.left = `${e.clientX}px`;
+    tooltip.style.top = `${e.clientY}px`;
+
     tooltip.classList.add("visible");
 
     // Hide after 1.5 seconds
@@ -82,5 +84,6 @@ document.getElementById("scroll-container").addEventListener("click", () => {
     console.warn("Clipboard copy failed:", err);
   });
 });
+
 
 
