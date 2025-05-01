@@ -126,26 +126,25 @@
       }
 
       function startStream() {
-        message.textContent = "Loading stream...";
+        message.classList.add("hidden");
         spinner.classList.add("visible");
 
         let timedOut = false;
 
-        // 10 second fallback timer
         const fallbackTimer = setTimeout(() => {
           timedOut = true;
           spinner.classList.remove("visible");
+          message.classList.remove("hidden");
           message.textContent = "Stream is offline.";
           updateScrollTitles("OFFLINE");
           albumArt.src = "../default-art.jpg";
           fadeInUI();
         }, 10000);
 
-        // Attempt to play
         audio
           .play()
           .then(() => {
-            if (timedOut) return; // prevent UI flashing if fallback already triggered
+            if (timedOut) return;
             clearTimeout(fallbackTimer);
             playBtn.textContent = "❚❚";
             fadeInUI();
@@ -155,6 +154,7 @@
             clearTimeout(fallbackTimer);
             console.warn("Stream play failed:", err);
             spinner.classList.remove("visible");
+            message.classList.remove("hidden");
             message.textContent = "Click to try again";
           });
       }
