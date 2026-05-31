@@ -4,6 +4,19 @@
   box-sizing: border-box;
 }
 
+@property --electric-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.svg-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 body.lilly-player {
   --theme-bg: #cfa8ab;
   --theme-bg-deep: #c49a9e;
@@ -147,14 +160,142 @@ body.lilly-player.beat-hit #bg-blur {
   padding: 1.5rem;
   border-radius: 20px;
   background: var(--theme-card);
-  border: 1px solid var(--theme-card-border);
+  border: 1px solid transparent;
   box-shadow: 0 20px 56px var(--theme-shadow),
     0 0 0 1px var(--theme-card-glow) inset;
   backdrop-filter: blur(18px) saturate(1.15);
+  isolation: isolate;
   opacity: 0;
   transform: translateY(12px);
-  transition: opacity 0.6s ease, background 1.1s ease, border-color 1.1s ease,
-    box-shadow 1.1s ease, color 1.1s ease;
+  transition: opacity 0.6s ease, background 1.1s ease, box-shadow 1.1s ease,
+    color 1.1s ease;
+}
+
+.player-card > :not(.electric-border) {
+  position: relative;
+  z-index: 1;
+}
+
+.electric-border {
+  position: absolute;
+  inset: -3px;
+  border-radius: 23px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.45;
+  transition: opacity 0.6s ease;
+}
+
+body.lilly-player.is-vibing .electric-border {
+  opacity: 1;
+}
+
+body.lilly-player.beat-hit .electric-border {
+  opacity: 1;
+}
+
+.electric-border__glow,
+.electric-border__arc {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.electric-border__glow {
+  inset: -5px;
+  background: conic-gradient(
+    from var(--electric-angle),
+    transparent 0deg,
+    var(--theme-accent) 32deg,
+    transparent 72deg,
+    var(--theme-card-glow) 128deg,
+    transparent 168deg,
+    color-mix(in srgb, var(--theme-accent) 55%, white) 224deg,
+    transparent 360deg
+  );
+  filter: blur(10px);
+  opacity: 0.55;
+  animation: electric-rotate 4.2s linear infinite reverse;
+}
+
+.electric-border__arc {
+  padding: 2px;
+  background: conic-gradient(
+    from var(--electric-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--theme-accent) 80%, white) 28deg,
+    transparent 56deg,
+    var(--theme-accent) 96deg,
+    transparent 136deg,
+    var(--theme-card-glow) 188deg,
+    transparent 228deg,
+    color-mix(in srgb, var(--theme-accent) 65%, white) 280deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter: url(#electric-turbulence);
+  animation: electric-rotate 3.1s linear infinite,
+    electric-flicker 2.4s ease-in-out infinite;
+}
+
+body.lilly-player.beat-hit .electric-border__arc {
+  animation: electric-rotate 1.6s linear infinite,
+    electric-flicker 0.28s ease-in-out 2;
+  filter: url(#electric-turbulence) brightness(1.35);
+}
+
+body.lilly-player.beat-hit .electric-border__glow {
+  opacity: 0.85;
+  filter: blur(12px) brightness(1.25);
+}
+
+@keyframes electric-rotate {
+  to {
+    --electric-angle: 360deg;
+  }
+}
+
+@keyframes electric-flicker {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  8% {
+    opacity: 1;
+  }
+  16% {
+    opacity: 0.48;
+  }
+  24% {
+    opacity: 0.92;
+  }
+  36% {
+    opacity: 0.55;
+  }
+  48% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.62;
+  }
+  78% {
+    opacity: 0.95;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .electric-border__glow,
+  .electric-border__arc {
+    animation: none;
+  }
+
+  .electric-border {
+    opacity: 0.35;
+  }
 }
 
 .player-card.visible {

@@ -22,6 +22,41 @@
     <link rel="manifest" href="../site.webmanifest" />
   </head>
   <body class="lilly-player">
+    <svg class="svg-filters" aria-hidden="true" focusable="false">
+      <defs>
+        <filter
+          id="electric-turbulence"
+          x="-30%"
+          y="-30%"
+          width="160%"
+          height="160%"
+          color-interpolation-filters="sRGB"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.014"
+            numOctaves="2"
+            seed="8"
+            result="noise"
+          >
+            <animate
+              attributeName="baseFrequency"
+              dur="2.8s"
+              values="0.014;0.022;0.01;0.014"
+              repeatCount="indefinite"
+            />
+          </feTurbulence>
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale="5"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </defs>
+    </svg>
+
     <div id="bg-blur" aria-hidden="true"></div>
     <div id="copy-tooltip">Copied!</div>
 
@@ -31,6 +66,11 @@
     </div>
 
     <main id="player-container" class="player-card">
+      <div class="electric-border" aria-hidden="true">
+        <div class="electric-border__glow"></div>
+        <div class="electric-border__arc"></div>
+      </div>
+
       <div class="art-frame">
         <img id="albumart" src="../default-art.jpg" alt="Album art" />
         <span class="live-badge"><span class="live-dot"></span>LIVE</span>
