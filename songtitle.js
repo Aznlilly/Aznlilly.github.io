@@ -207,6 +207,8 @@ const LILLY_DEFAULT_THEME = {
   accent: [168, 85, 99],
 };
 
+const ART_THEME_MIX = 0.86;
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -230,15 +232,57 @@ function shiftRgb([r, g, b], amount) {
   return [clamp(r + amount, 0, 255), clamp(g + amount, 0, 255), clamp(b + amount, 0, 255)];
 }
 
-function themeFromDominantColor(color) {
-  const pink = LILLY_DEFAULT_THEME;
-  const mix = 0.42;
+function luminance([r, g, b]) {
+  const channels = [r, g, b].map((channel) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
 
-  const bg = blendRgb(color, pink.bg, mix);
-  const bgDeep = shiftRgb(bg, -14);
-  const accent = shiftRgb(blendRgb(color, pink.accent, 0.55), -18);
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
 
-  return { bg, bgDeep, accent };
+function getDefaultTheme() {
+  const { bg, bgDeep, accent } = LILLY_DEFAULT_THEME;
+
+  return buildTheme({
+    primary: bg,
+    vibrant: accent,
+    muted: bgDeep,
+    isDefault: true,
+  });
+}
+
+function buildTheme({ primary, vibrant, muted, isDefault = false }) {
+  const fallback = LILLY_DEFAULT_THEME;
+  const mix = isDefault ? 1 : ART_THEME_MIX;
+
+  const bg = blendRgb(primary, fallback.bg, mix);
+  const bgDeep = blendRgb(muted, fallback.bgDeep, mix);
+  const accent = blendRgb(vibrant, fallback.accent, Math.min(1, mix + 0.06));
+
+  const card = blendRgb(primary, [255, 255, 255], isDefault ? 0.18 : 0.38);
+  const cardBorder = blendRgb(accent, primary, 0.62);
+  const cardGlow = blendRgb(accent, primary, 0.35);
+
+  const cardLight = luminance(card) > 0.58;
+  const text = cardLight ? [34, 22, 26] : [248, 244, 245];
+  const textMutedAlpha = cardLight ? 0.64 : 0.72;
+
+  return {
+    bg,
+    bgDeep,
+    accent,
+    card: rgbCss(card, isDefault ? 0.92 : 0.84),
+    cardBorder: rgbCss(cardBorder, isDefault ? 0.75 : 0.68),
+    cardGlow: rgbCss(cardGlow, 0.34),
+    text: rgbCss(text),
+    textMuted: rgbCss(text, textMutedAlpha),
+    shadow: rgbCss(shiftRgb(accent, -24), 0.34),
+    control: rgbCss(text, cardLight ? 0.1 : 0.14),
+    controlHover: rgbCss(text, cardLight ? 0.16 : 0.22),
+    blurOverlay: rgbCss(blendRgb(primary, bgDeep, 0.55), isDefault ? 0.58 : 0.72),
+    blurSaturation: isDefault ? 1.35 : 1.65,
+  };
 }
 
 function applyLillyTheme(theme) {
@@ -248,19 +292,21 @@ function applyLillyTheme(theme) {
   root.style.setProperty("--theme-bg", rgbCss(theme.bg));
   root.style.setProperty("--theme-bg-deep", rgbCss(theme.bgDeep));
   root.style.setProperty("--theme-accent", rgbCss(theme.accent));
-  root.style.setProperty(
-    "--theme-shadow",
-    rgbCss(shiftRgb(theme.accent, -20), 0.22)
-  );
-  root.style.setProperty(
-    "--theme-blur-overlay",
-    rgbCss(blendRgb(theme.bg, [255, 255, 255], 0.35), 0.58)
-  );
+  root.style.setProperty("--theme-card", theme.card);
+  root.style.setProperty("--theme-card-border", theme.cardBorder);
+  root.style.setProperty("--theme-card-glow", theme.cardGlow);
+  root.style.setProperty("--theme-text", theme.text);
+  root.style.setProperty("--theme-text-muted", theme.textMuted);
+  root.style.setProperty("--theme-shadow", theme.shadow);
+  root.style.setProperty("--theme-control", theme.control);
+  root.style.setProperty("--theme-control-hover", theme.controlHover);
+  root.style.setProperty("--theme-blur-overlay", theme.blurOverlay);
+  root.style.setProperty("--theme-blur-saturation", theme.blurSaturation);
 }
 
-function extractDominantColor(image) {
+function extractPalette(image) {
   const canvas = document.createElement("canvas");
-  const size = 48;
+  const size = 64;
   canvas.width = size;
   canvas.height = size;
 
@@ -270,45 +316,64 @@ function extractDominantColor(image) {
   ctx.drawImage(image, 0, 0, size, size);
   const { data } = ctx.getImageData(0, 0, size, size);
 
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let count = 0;
+  let rSum = 0;
+  let gSum = 0;
+  let bSum = 0;
+  let weightSum = 0;
+  let bestSatScore = 0;
+  let vibrant = null;
 
   for (let i = 0; i < data.length; i += 4) {
-    const pr = data[i];
-    const pg = data[i + 1];
-    const pb = data[i + 2];
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
     const alpha = data[i + 3];
 
     if (alpha < 128) continue;
 
-    const brightness = (pr + pg + pb) / 3;
-    if (brightness < 30 || brightness > 240) continue;
+    const brightness = (r + g + b) / 3;
+    if (brightness < 22 || brightness > 248) continue;
 
-    r += pr;
-    g += pg;
-    b += pb;
-    count += 1;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    const weight = 0.35 + saturation * 1.35;
+
+    rSum += r * weight;
+    gSum += g * weight;
+    bSum += b * weight;
+    weightSum += weight;
+
+    const satScore = saturation * (1 - Math.abs(brightness - 132) / 132);
+    if (satScore > bestSatScore) {
+      bestSatScore = satScore;
+      vibrant = [r, g, b];
+    }
   }
 
-  if (!count) return null;
+  if (!weightSum) return null;
 
-  return [
-    Math.round(r / count),
-    Math.round(g / count),
-    Math.round(b / count),
+  const primary = [
+    Math.round(rSum / weightSum),
+    Math.round(gSum / weightSum),
+    Math.round(bSum / weightSum),
   ];
+
+  return {
+    primary,
+    vibrant: vibrant || primary,
+    muted: shiftRgb(primary, -32),
+  };
 }
 
 function applyThemeFromImage(image) {
-  const dominant = extractDominantColor(image);
-  if (!dominant) {
-    applyLillyTheme(LILLY_DEFAULT_THEME);
+  const palette = extractPalette(image);
+  if (!palette) {
+    applyLillyTheme(getDefaultTheme());
     return;
   }
 
-  applyLillyTheme(themeFromDominantColor(dominant));
+  applyLillyTheme(buildTheme(palette));
 }
 
 function setAlbumArt(url, { skipTheme = false } = {}) {
@@ -338,7 +403,7 @@ function setAlbumArt(url, { skipTheme = false } = {}) {
   };
   next.onerror = () => {
     img.classList.remove("is-loading");
-    applyLillyTheme(LILLY_DEFAULT_THEME);
+    applyLillyTheme(getDefaultTheme());
   };
   next.src = absoluteUrl;
 }
@@ -351,7 +416,7 @@ function updateNowPlaying(metadata, isOffline) {
     updateLegacyTitles("OFFLINE");
     if (artistEl) artistEl.textContent = "—";
     if (titleEl) setMarqueeTitle(titleEl, "Stream offline");
-    applyLillyTheme(LILLY_DEFAULT_THEME);
+    applyLillyTheme(getDefaultTheme());
     setAlbumArt(defaultAlbumArt, { skipTheme: true });
     return;
   }
@@ -403,7 +468,7 @@ setTitle(mountPoint);
 window.setInterval(setTitle, 5000, mountPoint);
 
 if (document.body.classList.contains("lilly-player")) {
-  applyLillyTheme(LILLY_DEFAULT_THEME);
+  applyLillyTheme(getDefaultTheme());
 }
 
 const copyTarget =

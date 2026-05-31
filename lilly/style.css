@@ -10,12 +10,14 @@ body.lilly-player {
   --theme-accent: #a85563;
   --theme-card: rgba(255, 255, 255, 0.92);
   --theme-card-border: rgba(255, 255, 255, 0.75);
+  --theme-card-glow: rgba(168, 85, 99, 0.34);
   --theme-text: #2a1a1c;
   --theme-text-muted: rgba(42, 26, 28, 0.62);
   --theme-shadow: rgba(130, 70, 80, 0.22);
   --theme-control: rgba(42, 26, 28, 0.08);
   --theme-control-hover: rgba(42, 26, 28, 0.14);
   --theme-blur-overlay: rgba(207, 168, 171, 0.55);
+  --theme-blur-saturation: 1.35;
   --pulse-power: 1;
   --pulse-duration: 0.72s;
 
@@ -33,7 +35,7 @@ body.lilly-player {
     var(--theme-bg-deep) 100%
   );
   overflow: hidden;
-  transition: background 0.9s ease, color 0.9s ease;
+  transition: background 1.1s ease, color 1.1s ease;
 }
 
 #bg-blur {
@@ -41,11 +43,11 @@ body.lilly-player {
   inset: -20px;
   background-size: cover;
   background-position: center;
-  filter: blur(56px) saturate(1.35);
+  filter: blur(56px) saturate(var(--theme-blur-saturation));
   transform: scale(1.1);
-  opacity: 0.7;
+  opacity: 0.82;
   z-index: 0;
-  transition: background-image 0.9s ease;
+  transition: background-image 1.1s ease, filter 1.1s ease, opacity 1.1s ease;
 }
 
 body.lilly-player.beat-hit #bg-blur {
@@ -57,7 +59,7 @@ body.lilly-player.beat-hit #bg-blur {
   position: absolute;
   inset: 0;
   background: var(--theme-blur-overlay);
-  transition: background 0.9s ease;
+  transition: background 1.1s ease;
 }
 
 #copy-tooltip {
@@ -146,11 +148,13 @@ body.lilly-player.beat-hit #bg-blur {
   border-radius: 20px;
   background: var(--theme-card);
   border: 1px solid var(--theme-card-border);
-  box-shadow: 0 20px 56px var(--theme-shadow);
-  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 56px var(--theme-shadow),
+    0 0 0 1px var(--theme-card-glow) inset;
+  backdrop-filter: blur(18px) saturate(1.15);
   opacity: 0;
   transform: translateY(12px);
-  transition: opacity 0.6s ease, background 0.9s ease, border-color 0.9s ease;
+  transition: opacity 0.6s ease, background 1.1s ease, border-color 1.1s ease,
+    box-shadow 1.1s ease, color 1.1s ease;
 }
 
 .player-card.visible {
@@ -167,7 +171,10 @@ body.lilly-player.beat-hit .player-card.visible {
   aspect-ratio: 1;
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 8px 28px var(--theme-shadow);
+  border: 1px solid var(--theme-card-border);
+  box-shadow: 0 8px 28px var(--theme-shadow),
+    0 0 0 1px var(--theme-card-glow) inset;
+  transition: border-color 1.1s ease, box-shadow 1.1s ease;
 }
 
 body.lilly-player.beat-hit .art-frame {
@@ -184,7 +191,7 @@ body.lilly-player.beat-hit .art-frame {
 
 #albumart.is-logo {
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--theme-control);
   padding: 0.75rem;
 }
 
@@ -229,7 +236,7 @@ body.lilly-player.beat-hit .live-dot {
   22% {
     transform: scale(calc(1 + 0.11 * var(--pulse-power)));
     box-shadow: 0 16px 48px var(--theme-shadow),
-      0 0 calc(56px * var(--pulse-power)) rgba(255, 255, 255, 0.65);
+      0 0 calc(56px * var(--pulse-power)) var(--theme-card-glow);
   }
   100% {
     transform: scale(1);
@@ -245,7 +252,8 @@ body.lilly-player.beat-hit .live-dot {
   22% {
     transform: translateY(0) scale(calc(1 + 0.045 * var(--pulse-power)));
     box-shadow: 0 28px 72px var(--theme-shadow),
-      0 0 calc(40px * var(--pulse-power)) rgba(255, 255, 255, 0.5);
+      0 0 calc(40px * var(--pulse-power)) var(--theme-card-glow),
+      0 0 0 1px var(--theme-card-border) inset;
   }
   100% {
     transform: translateY(0) scale(1);
@@ -256,18 +264,19 @@ body.lilly-player.beat-hit .live-dot {
 @keyframes beat-bg {
   0% {
     transform: scale(1.1);
-    opacity: 0.7;
-    filter: blur(56px) saturate(1.35);
+    opacity: 0.82;
+    filter: blur(56px) saturate(var(--theme-blur-saturation));
   }
   22% {
     transform: scale(calc(1.1 + 0.1 * var(--pulse-power)));
-    opacity: calc(0.7 + 0.22 * var(--pulse-power));
-    filter: blur(56px) saturate(calc(1.35 + 0.55 * var(--pulse-power)));
+    opacity: calc(0.82 + 0.14 * var(--pulse-power));
+    filter: blur(56px)
+      saturate(calc(var(--theme-blur-saturation) + 0.45 * var(--pulse-power)));
   }
   100% {
     transform: scale(1.1);
-    opacity: 0.7;
-    filter: blur(56px) saturate(1.35);
+    opacity: 0.82;
+    filter: blur(56px) saturate(var(--theme-blur-saturation));
   }
 }
 
@@ -309,7 +318,7 @@ body.lilly-player.beat-hit .live-dot {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--theme-accent);
-  transition: color 0.9s ease;
+  transition: color 1.1s ease;
 }
 
 #track-artist {
@@ -319,7 +328,7 @@ body.lilly-player.beat-hit .live-dot {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.9s ease;
+  transition: color 1.1s ease;
 }
 
 #track-title {
@@ -330,6 +339,8 @@ body.lilly-player.beat-hit .live-dot {
   letter-spacing: -0.01em;
   cursor: pointer;
   min-height: 1.3em;
+  color: var(--theme-text);
+  transition: color 1.1s ease;
 }
 
 #track-title.is-marquee {
@@ -375,7 +386,7 @@ body.lilly-player.beat-hit .live-dot {
   background: var(--theme-control);
   color: var(--theme-text);
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease, color 0.9s ease;
+  transition: background 0.2s ease, transform 0.15s ease, color 1.1s ease;
 }
 
 .icon-button:hover {
