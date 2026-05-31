@@ -17,6 +17,7 @@ body.lilly-player {
   --theme-control-hover: rgba(42, 26, 28, 0.14);
   --theme-blur-overlay: rgba(207, 168, 171, 0.55);
   --pulse-power: 1;
+  --pulse-duration: 0.72s;
 
   margin: 0;
   min-height: 100dvh;
@@ -48,7 +49,7 @@ body.lilly-player {
 }
 
 body.lilly-player.beat-hit #bg-blur {
-  animation: beat-bg 0.78s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: beat-bg var(--pulse-duration) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #bg-blur::after {
@@ -158,7 +159,7 @@ body.lilly-player.beat-hit #bg-blur {
 }
 
 body.lilly-player.beat-hit .player-card.visible {
-  animation: beat-card 0.74s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: beat-card var(--pulse-duration) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .art-frame {
@@ -170,7 +171,7 @@ body.lilly-player.beat-hit .player-card.visible {
 }
 
 body.lilly-player.beat-hit .art-frame {
-  animation: beat-art 0.72s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: beat-art var(--pulse-duration) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #albumart {
@@ -217,7 +218,7 @@ body.lilly-player.beat-hit .art-frame {
 }
 
 body.lilly-player.beat-hit .live-dot {
-  animation: beat-live-dot 0.72s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: beat-live-dot var(--pulse-duration) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes beat-art {

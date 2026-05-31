@@ -384,6 +384,8 @@ async function setTitle(mountPoint) {
     if (raw === lastRawTitle) return;
 
     lastRawTitle = raw;
+    window.lillyBeat?.reset();
+
     const metadata = parseTrackMetadata(raw);
 
     updateNowPlaying(metadata, false);
