@@ -73,7 +73,7 @@
       </div>
     </main>
 
-    <audio id="audioplayer" preload="none">
+    <audio id="audioplayer" preload="none" crossorigin="anonymous">
       <source
         src="https://music.elsewhere.moe/stream?sid=1"
         type="audio/mpeg"
@@ -81,6 +81,7 @@
     </audio>
 
     <script src="../songtitle.js"></script>
+    <script src="beat.js"></script>
     <script>
       const audio = document.getElementById("audioplayer");
       const playBtn = document.getElementById("play-button");
@@ -127,6 +128,7 @@
             clearTimeout(fallbackTimer);
             setPlayingUI(true);
             fadeInUI();
+            window.lillyBeat?.start();
           })
           .catch((err) => {
             if (timedOut) return;
@@ -146,6 +148,7 @@
         } else {
           audio.pause();
           setPlayingUI(false);
+          window.lillyBeat?.stop();
         }
       });
 

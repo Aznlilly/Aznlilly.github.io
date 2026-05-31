@@ -201,7 +201,117 @@ function setMarqueeTitle(element, text) {
   });
 }
 
-function setAlbumArt(url) {
+const LILLY_DEFAULT_THEME = {
+  bg: [207, 168, 171],
+  bgDeep: [196, 154, 158],
+  accent: [168, 85, 99],
+};
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function rgbCss([r, g, b], alpha) {
+  if (alpha !== undefined) {
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function blendRgb(from, to, amount) {
+  return [
+    Math.round(from[0] * amount + to[0] * (1 - amount)),
+    Math.round(from[1] * amount + to[1] * (1 - amount)),
+    Math.round(from[2] * amount + to[2] * (1 - amount)),
+  ];
+}
+
+function shiftRgb([r, g, b], amount) {
+  return [clamp(r + amount, 0, 255), clamp(g + amount, 0, 255), clamp(b + amount, 0, 255)];
+}
+
+function themeFromDominantColor(color) {
+  const pink = LILLY_DEFAULT_THEME;
+  const mix = 0.42;
+
+  const bg = blendRgb(color, pink.bg, mix);
+  const bgDeep = shiftRgb(bg, -14);
+  const accent = shiftRgb(blendRgb(color, pink.accent, 0.55), -18);
+
+  return { bg, bgDeep, accent };
+}
+
+function applyLillyTheme(theme) {
+  if (!document.body.classList.contains("lilly-player")) return;
+
+  const root = document.body;
+  root.style.setProperty("--theme-bg", rgbCss(theme.bg));
+  root.style.setProperty("--theme-bg-deep", rgbCss(theme.bgDeep));
+  root.style.setProperty("--theme-accent", rgbCss(theme.accent));
+  root.style.setProperty(
+    "--theme-shadow",
+    rgbCss(shiftRgb(theme.accent, -20), 0.22)
+  );
+  root.style.setProperty(
+    "--theme-blur-overlay",
+    rgbCss(blendRgb(theme.bg, [255, 255, 255], 0.35), 0.58)
+  );
+}
+
+function extractDominantColor(image) {
+  const canvas = document.createElement("canvas");
+  const size = 48;
+  canvas.width = size;
+  canvas.height = size;
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+
+  ctx.drawImage(image, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let count = 0;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const pr = data[i];
+    const pg = data[i + 1];
+    const pb = data[i + 2];
+    const alpha = data[i + 3];
+
+    if (alpha < 128) continue;
+
+    const brightness = (pr + pg + pb) / 3;
+    if (brightness < 30 || brightness > 240) continue;
+
+    r += pr;
+    g += pg;
+    b += pb;
+    count += 1;
+  }
+
+  if (!count) return null;
+
+  return [
+    Math.round(r / count),
+    Math.round(g / count),
+    Math.round(b / count),
+  ];
+}
+
+function applyThemeFromImage(image) {
+  const dominant = extractDominantColor(image);
+  if (!dominant) {
+    applyLillyTheme(LILLY_DEFAULT_THEME);
+    return;
+  }
+
+  applyLillyTheme(themeFromDominantColor(dominant));
+}
+
+function setAlbumArt(url, { skipTheme = false } = {}) {
   const img = document.getElementById("albumart");
   const blur = document.getElementById("bg-blur");
   if (!img) return;
@@ -220,11 +330,15 @@ function setAlbumArt(url) {
     img.dataset.current = absoluteUrl;
     img.classList.remove("is-loading");
     if (blur) {
-      blur.style.backgroundImage = isLogo ? "none" : `url("${absoluteUrl}")`;
+      blur.style.backgroundImage = skipTheme ? "none" : `url("${absoluteUrl}")`;
+    }
+    if (!skipTheme) {
+      applyThemeFromImage(next);
     }
   };
   next.onerror = () => {
     img.classList.remove("is-loading");
+    applyLillyTheme(LILLY_DEFAULT_THEME);
   };
   next.src = absoluteUrl;
 }
@@ -237,7 +351,8 @@ function updateNowPlaying(metadata, isOffline) {
     updateLegacyTitles("OFFLINE");
     if (artistEl) artistEl.textContent = "—";
     if (titleEl) setMarqueeTitle(titleEl, "Stream offline");
-    setAlbumArt(defaultAlbumArt);
+    applyLillyTheme(LILLY_DEFAULT_THEME);
+    setAlbumArt(defaultAlbumArt, { skipTheme: true });
     return;
   }
 
@@ -284,6 +399,10 @@ async function setTitle(mountPoint) {
 
 setTitle(mountPoint);
 window.setInterval(setTitle, 5000, mountPoint);
+
+if (document.body.classList.contains("lilly-player")) {
+  applyLillyTheme(LILLY_DEFAULT_THEME);
+}
 
 const copyTarget =
   document.getElementById("track-title") ||
