@@ -1,7 +1,52 @@
 var mountPoint = window.location.pathname.split("/")[1];
 const defaultAlbumArt = "/default-art.jpg"; // ✅ absolute path from root
 
-async function songTitle(mountPoint) {
+const SHOUTCAST_STREAMS = {
+  lilly: {
+    statsUrl: "http://music.elsewhere.moe:18000/stats",
+    sid: 1,
+  },
+};
+
+function shoutcastSongTitle({ statsUrl, sid }) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `shoutcastCb_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2)}`;
+    const script = document.createElement("script");
+
+    const cleanup = () => {
+      delete window[callbackName];
+      script.remove();
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Shoutcast stats timeout"));
+    }, 8000);
+
+    window[callbackName] = (data) => {
+      clearTimeout(timeout);
+      cleanup();
+      if (!data || data.streamstatus !== 1 || !data.songtitle) {
+        resolve(null);
+        return;
+      }
+      resolve(data.songtitle.trim());
+    };
+
+    script.onerror = () => {
+      clearTimeout(timeout);
+      cleanup();
+      reject(new Error("Failed to load Shoutcast stats"));
+    };
+
+    script.src = `${statsUrl}?sid=${sid}&json=1&callback=${callbackName}`;
+    document.head.appendChild(script);
+  });
+}
+
+async function icecastSongTitle(mountPoint) {
   const response = await fetch("https://music.pixelhumble.com/status-json.xsl");
   const stats = await response.json();
 
@@ -13,6 +58,12 @@ async function songTitle(mountPoint) {
   if (!match || !match.title) return null;
 
   return match.title;
+}
+
+async function songTitle(mountPoint) {
+  const shoutcast = SHOUTCAST_STREAMS[mountPoint];
+  if (shoutcast) return shoutcastSongTitle(shoutcast);
+  return icecastSongTitle(mountPoint);
 }
 
 async function fetchAlbumArt(title) {
