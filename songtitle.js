@@ -1,86 +1,17 @@
 var mountPoint = window.location.pathname.split("/")[1];
 const defaultAlbumArt = "/default-art.jpg"; // ✅ absolute path from root
 
+const SHOUTCAST_ORIGIN = "https://music.elsewhere.moe";
+
 const SHOUTCAST_STREAMS = {
   lilly: { sid: 1 },
 };
 
-const SHOUTCAST_ORIGIN = "http://music.elsewhere.moe:18000";
-
-let shoutcastReadyPromise = null;
-
-function waitForServiceWorkerControl() {
-  if (navigator.serviceWorker.controller) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, 5000);
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      () => {
-        clearTimeout(timeout);
-        resolve();
-      },
-      { once: true }
-    );
-  });
-}
-
-function ensureShoutcastProxy() {
-  if (!("serviceWorker" in navigator)) {
-    return Promise.reject(new Error("Service workers are not supported"));
-  }
-
-  if (!shoutcastReadyPromise) {
-    shoutcastReadyPromise = (async () => {
-      const registration = await navigator.serviceWorker.register("/sw.js", {
-        scope: "/",
-        updateViaCache: "none",
-      });
-
-      if (registration.waiting) {
-        registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
-
-      await navigator.serviceWorker.ready;
-      await waitForServiceWorkerControl();
-
-      // First visit: SW installs after the page loads, so reload once to get control.
-      if (
-        !navigator.serviceWorker.controller &&
-        !sessionStorage.getItem("shoutcast-sw-ready")
-      ) {
-        sessionStorage.setItem("shoutcast-sw-ready", "1");
-        window.location.reload();
-        return new Promise(() => {});
-      }
-
-      return registration;
-    })();
-  }
-
-  return shoutcastReadyPromise;
-}
-
-window.ensureShoutcastProxy = ensureShoutcastProxy;
-
 async function fetchShoutcastStats(sid) {
-  const upstream = `${SHOUTCAST_ORIGIN}/stats?sid=${sid}&json=1`;
-
-  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    const response = await fetch(`/api/shoutcast/stats?sid=${sid}`);
-    if (response.ok) {
-      return response.json();
-    }
-  }
-
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(upstream)}`;
-  const response = await fetch(proxyUrl);
+  const response = await fetch(`${SHOUTCAST_ORIGIN}/stats?sid=${sid}&json=1`);
   if (!response.ok) {
-    throw new Error(`Shoutcast stats proxy failed: ${response.status}`);
+    throw new Error(`Shoutcast stats failed: ${response.status}`);
   }
-
   return response.json();
 }
 
@@ -154,20 +85,8 @@ async function setTitle(mountPoint) {
   }
 }
 
-async function initTitlePolling(mountPoint) {
-  if (SHOUTCAST_STREAMS[mountPoint]) {
-    try {
-      await ensureShoutcastProxy();
-    } catch (err) {
-      console.error("Shoutcast proxy setup failed:", err);
-    }
-  }
-
-  setTitle(mountPoint);
-  window.setInterval(setTitle, 3000, mountPoint);
-}
-
-initTitlePolling(mountPoint);
+setTitle(mountPoint);
+window.setInterval(setTitle, 3000, mountPoint);
 
 // Enable click-to-copy on scroll-container
 document.getElementById("scroll-container").addEventListener("click", (e) => {
