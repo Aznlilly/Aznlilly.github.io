@@ -338,6 +338,53 @@ function applyLillyTheme(theme) {
   root.style.setProperty("--theme-electric-core", theme.electricCore);
   root.style.setProperty("--theme-electric-spark", theme.electricSpark);
   root.style.setProperty("--theme-electric-glow", theme.electricGlow);
+
+  const playerCard = document.querySelector(".player-card");
+  if (playerCard) {
+    playerCard.style.setProperty("--theme-electric-hot", theme.electricHot);
+    playerCard.style.setProperty("--theme-electric-core", theme.electricCore);
+    playerCard.style.setProperty("--theme-electric-spark", theme.electricSpark);
+    playerCard.style.setProperty("--theme-electric-glow", theme.electricGlow);
+    playerCard.style.setProperty("--theme-card-glow", theme.cardGlow);
+    playerCard.style.setProperty("--theme-card-border", theme.cardBorder);
+    playerCard.style.setProperty("--theme-shadow", theme.shadow);
+  }
+
+  applyElectricBorderTheme(theme);
+}
+
+function applyElectricBorderTheme(theme) {
+  const glow = document.querySelector(".electric-border__glow");
+  const arc = document.querySelector(".electric-border__arc");
+  if (!glow || !arc) return;
+
+  glow.style.backgroundImage = [
+    "conic-gradient(",
+    "from var(--electric-angle),",
+    "transparent 0deg,",
+    `${theme.electricSpark} 32deg,`,
+    "transparent 72deg,",
+    `${theme.electricGlow} 128deg,`,
+    "transparent 168deg,",
+    `${theme.electricHot} 224deg,`,
+    "transparent 360deg",
+    ")",
+  ].join(" ");
+
+  arc.style.backgroundImage = [
+    "conic-gradient(",
+    "from var(--electric-angle),",
+    "transparent 0deg,",
+    `${theme.electricSpark} 28deg,`,
+    "transparent 56deg,",
+    `${theme.electricHot} 96deg,`,
+    "transparent 136deg,",
+    `${theme.electricCore} 188deg,`,
+    "transparent 228deg,",
+    `${theme.electricSpark} 280deg,`,
+    "transparent 360deg",
+    ")",
+  ].join(" ");
 }
 
 function refreshTheme() {

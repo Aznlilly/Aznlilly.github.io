@@ -240,16 +240,6 @@ body.lilly-player.beat-hit .electric-border {
 
 .electric-border__glow {
   inset: -6px;
-  background: conic-gradient(
-    from var(--electric-angle),
-    transparent 0deg,
-    var(--theme-electric-spark) 32deg,
-    transparent 72deg,
-    var(--theme-electric-glow) 128deg,
-    transparent 168deg,
-    var(--theme-electric-hot) 224deg,
-    transparent 360deg
-  );
   filter: blur(12px);
   opacity: 0.5;
   animation: electric-rotate 4.2s linear infinite reverse;
@@ -262,18 +252,6 @@ body.lilly-player.is-vibing .electric-border__glow {
 
 .electric-border__arc {
   padding: 2px;
-  background: conic-gradient(
-    from var(--electric-angle),
-    transparent 0deg,
-    var(--theme-electric-spark) 28deg,
-    transparent 56deg,
-    var(--theme-electric-hot) 96deg,
-    transparent 136deg,
-    var(--theme-electric-core) 188deg,
-    transparent 228deg,
-    var(--theme-electric-spark) 280deg,
-    transparent 360deg
-  );
   -webkit-mask: linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
