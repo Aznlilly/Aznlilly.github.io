@@ -5,7 +5,27 @@ const SHOUTCAST_STREAMS = {
   lilly: { sid: 1 },
 };
 
+const SHOUTCAST_ORIGIN = "http://music.elsewhere.moe:18000";
+
 let shoutcastReadyPromise = null;
+
+function waitForServiceWorkerControl() {
+  if (navigator.serviceWorker.controller) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const timeout = setTimeout(resolve, 5000);
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      () => {
+        clearTimeout(timeout);
+        resolve();
+      },
+      { once: true }
+    );
+  });
+}
 
 function ensureShoutcastProxy() {
   if (!("serviceWorker" in navigator)) {
@@ -13,9 +33,31 @@ function ensureShoutcastProxy() {
   }
 
   if (!shoutcastReadyPromise) {
-    shoutcastReadyPromise = navigator.serviceWorker
-      .register("/sw.js")
-      .then(() => navigator.serviceWorker.ready);
+    shoutcastReadyPromise = (async () => {
+      const registration = await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+        updateViaCache: "none",
+      });
+
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+
+      await navigator.serviceWorker.ready;
+      await waitForServiceWorkerControl();
+
+      // First visit: SW installs after the page loads, so reload once to get control.
+      if (
+        !navigator.serviceWorker.controller &&
+        !sessionStorage.getItem("shoutcast-sw-ready")
+      ) {
+        sessionStorage.setItem("shoutcast-sw-ready", "1");
+        window.location.reload();
+        return new Promise(() => {});
+      }
+
+      return registration;
+    })();
   }
 
   return shoutcastReadyPromise;
@@ -23,10 +65,27 @@ function ensureShoutcastProxy() {
 
 window.ensureShoutcastProxy = ensureShoutcastProxy;
 
+async function fetchShoutcastStats(sid) {
+  const upstream = `${SHOUTCAST_ORIGIN}/stats?sid=${sid}&json=1`;
+
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    const response = await fetch(`/api/shoutcast/stats?sid=${sid}`);
+    if (response.ok) {
+      return response.json();
+    }
+  }
+
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(upstream)}`;
+  const response = await fetch(proxyUrl);
+  if (!response.ok) {
+    throw new Error(`Shoutcast stats proxy failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 async function shoutcastSongTitle({ sid }) {
-  await ensureShoutcastProxy();
-  const response = await fetch(`/api/shoutcast/stats?sid=${sid}`);
-  const data = await response.json();
+  const data = await fetchShoutcastStats(sid);
 
   if (!data || data.streamstatus !== 1 || !data.songtitle) return null;
   return data.songtitle.trim();

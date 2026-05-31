@@ -18,6 +18,11 @@
     />
     <meta name="apple-mobile-web-app-title" content="/MyWebSite" />
     <link rel="manifest" href="../site.webmanifest" />
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      }
+    </script>
   </head>
   <body>
     <div id="copy-tooltip">Copied!</div>
@@ -89,9 +94,7 @@
       <img id="albumart" src="../default-art.jpg" alt="Album Art" />
     </div>
 
-    <audio id="audioplayer" autoplay preload="none">
-      <source src="/api/shoutcast/stream?sid=1" type="audio/mpeg" />
-    </audio>
+    <audio id="audioplayer" autoplay preload="none"></audio>
 
     <script src="../songtitle.js"></script>
     <script>
@@ -145,8 +148,20 @@
           if (window.ensureShoutcastProxy) {
             await window.ensureShoutcastProxy();
           }
+
+          if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+            throw new Error("Stream proxy is not ready yet");
+          }
+
+          audio.src = "/api/shoutcast/stream?sid=1";
+          audio.load();
         } catch (err) {
           console.warn("Shoutcast proxy setup failed:", err);
+          clearTimeout(fallbackTimer);
+          spinner.classList.remove("visible");
+          message.classList.remove("hidden");
+          message.textContent = "Stream proxy not ready. Refresh and try again.";
+          return;
         }
 
         audio
