@@ -287,20 +287,26 @@ function buildTheme({ primary, vibrant, muted, isDefault = false, active = false
   const bg = primary;
   const bgDeep = muted;
   const accent = vibrant;
+  const artIsDark = luminance(primary) < 0.35;
 
-  const card = blendRgb(primary, vibrant, active ? 0.38 : 0.26);
-  const cardBorder = blendRgb(vibrant, primary, active ? 0.75 : 0.62);
-  const cardGlow = blendRgb(vibrant, primary, active ? 0.62 : 0.48);
+  const card = artIsDark
+    ? blendRgb(muted, vibrant, active ? 0.28 : 0.18)
+    : blendRgb(primary, vibrant, active ? 0.38 : 0.26);
+  const cardBorder = blendRgb(vibrant, artIsDark ? muted : primary, active ? 0.75 : 0.62);
+  const cardGlow = blendRgb(vibrant, artIsDark ? muted : primary, active ? 0.62 : 0.48);
 
-  const cardLight = luminance(card) > 0.58;
+  const cardLight = !artIsDark && luminance(card) > 0.58;
   const text = cardLight ? [34, 22, 26] : [248, 244, 245];
   const textMutedAlpha = cardLight ? 0.64 : 0.72;
+  const cardAlpha = artIsDark
+    ? active ? 0.62 : 0.72
+    : active ? 0.74 : 0.82;
 
   return {
     bg,
     bgDeep,
     accent,
-    card: rgbCss(card, active ? 0.74 : 0.82),
+    card: rgbCss(card, cardAlpha),
     cardBorder: rgbCss(cardBorder, active ? 0.85 : 0.72),
     cardGlow: rgbCss(cardGlow, active ? 0.58 : 0.42),
     text: rgbCss(text),
@@ -310,10 +316,10 @@ function buildTheme({ primary, vibrant, muted, isDefault = false, active = false
     controlHover: rgbCss(text, cardLight ? 0.16 : 0.22),
     blurOverlay: rgbCss(blendRgb(primary, muted, active ? 0.68 : 0.52), active ? 0.86 : 0.74),
     blurSaturation: active ? 2.15 : 1.85,
-    electricHot: rgbCss(blendRgb(vibrant, [255, 255, 255], active ? 0.04 : 0.12)),
-    electricCore: rgbCss(blendRgb(primary, vibrant, active ? 0.32 : 0.48)),
-    electricSpark: rgbCss(blendRgb(vibrant, [255, 255, 255], active ? 0.02 : 0.08)),
-    electricGlow: rgbCss(blendRgb(vibrant, primary, 0.25), active ? 0.78 : 0.55),
+    electricHot: rgbCss(vibrant),
+    electricCore: rgbCss(blendRgb(muted, vibrant, active ? 0.42 : 0.55)),
+    electricSpark: rgbCss(blendRgb(vibrant, primary, 0.35)),
+    electricGlow: rgbCss(blendRgb(vibrant, muted, 0.4), active ? 0.78 : 0.55),
   };
 }
 
@@ -404,85 +410,93 @@ function setThemeActive(active) {
 window.lillyTheme = { setActive: setThemeActive, refresh: refreshTheme };
 
 function extractPalette(image) {
-  const canvas = document.createElement("canvas");
-  const size = 64;
-  canvas.width = size;
-  canvas.height = size;
+  try {
+    const canvas = document.createElement("canvas");
+    const size = 64;
+    canvas.width = size;
+    canvas.height = size;
 
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
 
-  ctx.drawImage(image, 0, 0, size, size);
-  const { data } = ctx.getImageData(0, 0, size, size);
+    ctx.drawImage(image, 0, 0, size, size);
+    const { data } = ctx.getImageData(0, 0, size, size);
 
-  let rSum = 0;
-  let gSum = 0;
-  let bSum = 0;
-  let weightSum = 0;
-  let bestSatScore = 0;
-  let vibrant = null;
-  let darkR = 0;
-  let darkG = 0;
-  let darkB = 0;
-  let darkWeight = 0;
+    let allR = 0;
+    let allG = 0;
+    let allB = 0;
+    let allWeight = 0;
+    let darkR = 0;
+    let darkG = 0;
+    let darkB = 0;
+    let darkWeight = 0;
+    let bestSatScore = 0;
+    let vibrant = null;
 
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const alpha = data[i + 3];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const alpha = data[i + 3];
 
-    if (alpha < 128) continue;
+      if (alpha < 64) continue;
 
-    const brightness = (r + g + b) / 3;
-    if (brightness < 22 || brightness > 248) continue;
+      const brightness = (r + g + b) / 3;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const saturation = max === 0 ? 0 : (max - min) / max;
+      const weight = 0.15 + saturation * 1.2;
 
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const saturation = max === 0 ? 0 : (max - min) / max;
-    const weight = 0.25 + saturation * 1.65;
+      allR += r * weight;
+      allG += g * weight;
+      allB += b * weight;
+      allWeight += weight;
 
-    rSum += r * weight;
-    gSum += g * weight;
-    bSum += b * weight;
-    weightSum += weight;
+      if (brightness < 140) {
+        const darkPixelWeight = (140 - brightness) * (0.3 + saturation * 0.7);
+        darkR += r * darkPixelWeight;
+        darkG += g * darkPixelWeight;
+        darkB += b * darkPixelWeight;
+        darkWeight += darkPixelWeight;
+      }
 
-    const satScore = saturation * (1 - Math.abs(brightness - 132) / 132);
-    if (satScore > bestSatScore) {
-      bestSatScore = satScore;
-      vibrant = [r, g, b];
+      if (brightness > 248) continue;
+
+      const satScore = saturation * (1 - Math.abs(brightness - 120) / 120);
+      if (satScore > bestSatScore) {
+        bestSatScore = satScore;
+        vibrant = [r, g, b];
+      }
     }
 
-    if (brightness < 118 && saturation > 0.08) {
-      const darkPixelWeight = (118 - brightness) * (0.4 + saturation);
-      darkR += r * darkPixelWeight;
-      darkG += g * darkPixelWeight;
-      darkB += b * darkPixelWeight;
-      darkWeight += darkPixelWeight;
-    }
+    if (!allWeight) return null;
+
+    const average = [
+      Math.round(allR / allWeight),
+      Math.round(allG / allWeight),
+      Math.round(allB / allWeight),
+    ];
+
+    const muted = darkWeight
+      ? [
+          Math.round(darkR / darkWeight),
+          Math.round(darkG / darkWeight),
+          Math.round(darkB / darkWeight),
+        ]
+      : shiftRgb(average, -36);
+
+    const darkDominant = darkWeight > allWeight * 0.35;
+    const primary = darkDominant ? muted : average;
+
+    return {
+      primary,
+      vibrant: vibrant || average,
+      muted: shiftRgb(muted, -16),
+    };
+  } catch (err) {
+    console.warn("Palette extraction failed:", err);
+    return null;
   }
-
-  if (!weightSum) return null;
-
-  const primary = [
-    Math.round(rSum / weightSum),
-    Math.round(gSum / weightSum),
-    Math.round(bSum / weightSum),
-  ];
-
-  const muted = darkWeight
-    ? [
-        Math.round(darkR / darkWeight),
-        Math.round(darkG / darkWeight),
-        Math.round(darkB / darkWeight),
-      ]
-    : shiftRgb(primary, -36);
-
-  return {
-    primary,
-    vibrant: vibrant || primary,
-    muted,
-  };
 }
 
 function applyThemeFromImage(image) {
@@ -497,6 +511,38 @@ function applyThemeFromImage(image) {
   applyLillyTheme(buildTheme({ ...palette, active: themeActive }));
 }
 
+function isCrossOriginArt(url) {
+  try {
+    return new URL(url, window.location.origin).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function finishAlbumArtLoad(
+  img,
+  blur,
+  absoluteUrl,
+  loadedImage,
+  { skipTheme = false, isLogo = false } = {}
+) {
+  img.src = absoluteUrl;
+  img.dataset.current = absoluteUrl;
+  img.classList.remove("is-loading");
+
+  if (blur) {
+    blur.style.backgroundImage =
+      skipTheme || isLogo ? "none" : `url("${absoluteUrl}")`;
+  }
+
+  if (isLogo) {
+    lastArtPalette = null;
+    applyLillyTheme(getDefaultTheme());
+  } else if (!skipTheme) {
+    applyThemeFromImage(loadedImage || img);
+  }
+}
+
 function setAlbumArt(url, { skipTheme = false } = {}) {
   const img = document.getElementById("albumart");
   const blur = document.getElementById("bg-blur");
@@ -504,34 +550,45 @@ function setAlbumArt(url, { skipTheme = false } = {}) {
 
   const absoluteUrl = new URL(url, window.location.origin).href;
   const isLogo = url.includes("DJ-LILLY-LOGO");
+  const needsCrossOrigin = !isLogo && isCrossOriginArt(absoluteUrl);
 
-  if (img.dataset.current === absoluteUrl) return;
+  if (img.dataset.current === absoluteUrl) {
+    if (!isLogo && !skipTheme && !lastArtPalette) {
+      applyThemeFromImage(img);
+    }
+    return;
+  }
 
   img.classList.toggle("is-logo", isLogo);
   img.classList.add("is-loading");
 
-  const next = new Image();
-  next.onload = () => {
-    img.src = absoluteUrl;
-    img.dataset.current = absoluteUrl;
-    img.classList.remove("is-loading");
-    if (blur) {
-      blur.style.backgroundImage =
-        skipTheme || isLogo ? "none" : `url("${absoluteUrl}")`;
+  const loadArt = (allowCorsRetry) => {
+    const loader = new Image();
+
+    if (needsCrossOrigin && allowCorsRetry) {
+      loader.crossOrigin = "anonymous";
+      img.crossOrigin = "anonymous";
+    } else {
+      img.removeAttribute("crossorigin");
     }
-    if (isLogo) {
-      lastArtPalette = null;
+
+    loader.onload = () =>
+      finishAlbumArtLoad(img, blur, absoluteUrl, loader, { skipTheme, isLogo });
+    loader.onerror = () => {
+      if (needsCrossOrigin && allowCorsRetry) {
+        loadArt(false);
+        return;
+      }
+
+      img.classList.remove("is-loading");
       applyLillyTheme(getDefaultTheme());
-    } else if (!skipTheme) {
-      applyThemeFromImage(next);
-    }
+      lastArtPalette = null;
+    };
+
+    loader.src = absoluteUrl;
   };
-  next.onerror = () => {
-    img.classList.remove("is-loading");
-    applyLillyTheme(getDefaultTheme());
-    lastArtPalette = null;
-  };
-  next.src = absoluteUrl;
+
+  loadArt(Boolean(needsCrossOrigin));
 }
 
 function updateNowPlaying(metadata, isOffline) {
