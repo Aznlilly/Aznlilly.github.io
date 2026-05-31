@@ -6,6 +6,9 @@
 
   if (!audio || !player) return;
 
+  const ATTACK = 0.18;
+  const RELEASE = 0.07;
+
   let audioCtx = null;
   let analyser = null;
   let source = null;
@@ -23,7 +26,7 @@
       source = audioCtx.createMediaElementSource(audio);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.35;
+      analyser.smoothingTimeConstant = 0.45;
       analyser.minDecibels = -85;
       analyser.maxDecibels = -25;
 
@@ -55,15 +58,21 @@
 
     flux /= bins * 255;
 
-    fluxBaseline = fluxBaseline * 0.965 + flux * 0.035;
+    fluxBaseline = fluxBaseline * 0.97 + flux * 0.03;
 
-    const excess = Math.max(0, flux - fluxBaseline * 1.25);
-    return Math.min(1, excess / 0.07);
+    const excess = Math.max(0, flux - fluxBaseline * 1.2);
+    return Math.min(1, excess / 0.06);
+  }
+
+  function smoothEnergy(target) {
+    const rate = target > displayEnergy ? ATTACK : RELEASE;
+    displayEnergy += (target - displayEnergy) * rate;
   }
 
   function tick() {
     if (!analyser || audio.paused) {
-      displayEnergy *= 0.85;
+      smoothEnergy(0);
+
       if (displayEnergy < 0.002) displayEnergy = 0;
       applyEnergy(displayEnergy);
 
@@ -78,14 +87,9 @@
     }
 
     const hit = readBeatTransient();
-    const peak = hit * hit;
+    const peak = Math.pow(hit, 1.45);
 
-    if (peak > displayEnergy) {
-      displayEnergy = peak;
-    } else {
-      displayEnergy *= 0.8;
-    }
-
+    smoothEnergy(peak);
     applyEnergy(displayEnergy);
     rafId = requestAnimationFrame(tick);
   }
