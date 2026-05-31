@@ -151,6 +151,13 @@ body.lilly-player {
   transition: opacity 0.35s ease;
 }
 
+#albumart.is-logo {
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.75rem;
+}
+
+
 #albumart.is-loading {
   opacity: 0.35;
 }

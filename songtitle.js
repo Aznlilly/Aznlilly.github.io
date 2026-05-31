@@ -4,11 +4,15 @@ const defaultAlbumArt = "/default-art.jpg";
 const SHOUTCAST_ORIGIN = "https://music.elsewhere.moe";
 
 const SHOUTCAST_STREAMS = {
-  lilly: { sid: 1 },
+  lilly: { sid: 1, logo: "/lilly/DJ-LILLY-LOGO.png" },
 };
 
 const artCache = new Map();
 let lastRawTitle = null;
+
+function isDjLilly(artist) {
+  return normalizeForMatch(artist) === "dj lilly";
+}
 
 function parseTrackMetadata(raw) {
   const cleaned = raw.replace(/\s+/g, " ").trim();
@@ -108,12 +112,18 @@ async function searchDeezer(artist, track) {
   return null;
 }
 
-async function fetchAlbumArt(metadata) {
-  const { artist, track, raw } = metadata;
+async function fetchAlbumArt(metadata, mountPoint) {
+  const { artist, track } = metadata;
   const cacheKey = `${artist}|${track}`;
 
   if (artCache.has(cacheKey)) {
     return artCache.get(cacheKey);
+  }
+
+  const streamConfig = SHOUTCAST_STREAMS[mountPoint];
+  if (streamConfig?.logo && isDjLilly(artist)) {
+    artCache.set(cacheKey, streamConfig.logo);
+    return streamConfig.logo;
   }
 
   const genericTitles = /^(various artists|unknown|loading|offline)$/i;
@@ -197,8 +207,11 @@ function setAlbumArt(url) {
   if (!img) return;
 
   const absoluteUrl = new URL(url, window.location.origin).href;
+  const isLogo = url.includes("DJ-LILLY-LOGO");
+
   if (img.dataset.current === absoluteUrl) return;
 
+  img.classList.toggle("is-logo", isLogo);
   img.classList.add("is-loading");
 
   const next = new Image();
@@ -206,7 +219,9 @@ function setAlbumArt(url) {
     img.src = absoluteUrl;
     img.dataset.current = absoluteUrl;
     img.classList.remove("is-loading");
-    if (blur) blur.style.backgroundImage = `url("${absoluteUrl}")`;
+    if (blur) {
+      blur.style.backgroundImage = isLogo ? "none" : `url("${absoluteUrl}")`;
+    }
   };
   next.onerror = () => {
     img.classList.remove("is-loading");
@@ -258,7 +273,7 @@ async function setTitle(mountPoint) {
 
     updateNowPlaying(metadata, false);
 
-    const artUrl = await fetchAlbumArt(metadata);
+    const artUrl = await fetchAlbumArt(metadata, mountPoint);
     setAlbumArt(artUrl || defaultAlbumArt);
   } catch (err) {
     console.error("Error in setTitle:", err);
