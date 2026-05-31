@@ -169,6 +169,7 @@
             setPlayingUI(true);
             fadeInUI();
             window.lillyBeat?.start();
+            window.lillyTheme?.setActive(true);
           })
           .catch((err) => {
             if (timedOut) return;
@@ -189,6 +190,7 @@
           audio.pause();
           setPlayingUI(false);
           window.lillyBeat?.stop();
+          window.lillyTheme?.setActive(false);
         }
       });
 

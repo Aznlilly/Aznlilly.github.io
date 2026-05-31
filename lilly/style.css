@@ -31,6 +31,10 @@ body.lilly-player {
   --theme-control-hover: rgba(42, 26, 28, 0.14);
   --theme-blur-overlay: rgba(207, 168, 171, 0.55);
   --theme-blur-saturation: 1.35;
+  --theme-electric-hot: #a85563;
+  --theme-electric-core: #cfa8ab;
+  --theme-electric-spark: #c8707a;
+  --theme-electric-glow: rgba(168, 85, 99, 0.45);
   --pulse-power: 1;
   --pulse-duration: 0.72s;
 
@@ -176,14 +180,47 @@ body.lilly-player.beat-hit #bg-blur {
   z-index: 1;
 }
 
+body.lilly-player.is-vibing {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--theme-bg) 92%, var(--theme-electric-core)) 0%,
+    color-mix(in srgb, var(--theme-bg-deep) 92%, var(--theme-electric-hot)) 100%
+  );
+}
+
+body.lilly-player.is-vibing #bg-blur {
+  opacity: 0.94;
+  filter: blur(56px) saturate(var(--theme-blur-saturation))
+    brightness(1.04);
+}
+
+body.lilly-player.is-vibing .player-card.visible {
+  border-color: color-mix(in srgb, var(--theme-card-border) 50%, var(--theme-electric-spark));
+  box-shadow: 0 24px 64px var(--theme-shadow),
+    0 0 48px var(--theme-electric-glow),
+    0 0 0 1px var(--theme-card-glow) inset;
+}
+
+body.lilly-player.is-vibing .art-frame {
+  border-color: color-mix(in srgb, var(--theme-card-border) 45%, var(--theme-electric-hot));
+  box-shadow: 0 8px 32px var(--theme-shadow),
+    0 0 20px var(--theme-electric-glow),
+    0 0 0 1px var(--theme-card-glow) inset;
+}
+
+body.lilly-player.is-vibing .live-dot {
+  background: var(--theme-electric-hot);
+  box-shadow: 0 0 10px var(--theme-electric-glow);
+}
+
 .electric-border {
   position: absolute;
   inset: -3px;
   border-radius: 23px;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.45;
-  transition: opacity 0.6s ease;
+  opacity: 0.4;
+  transition: opacity 0.8s ease;
 }
 
 body.lilly-player.is-vibing .electric-border {
@@ -202,20 +239,25 @@ body.lilly-player.beat-hit .electric-border {
 }
 
 .electric-border__glow {
-  inset: -5px;
+  inset: -6px;
   background: conic-gradient(
     from var(--electric-angle),
     transparent 0deg,
-    var(--theme-accent) 32deg,
+    var(--theme-electric-spark) 32deg,
     transparent 72deg,
-    var(--theme-card-glow) 128deg,
+    var(--theme-electric-glow) 128deg,
     transparent 168deg,
-    color-mix(in srgb, var(--theme-accent) 55%, white) 224deg,
+    var(--theme-electric-hot) 224deg,
     transparent 360deg
   );
-  filter: blur(10px);
-  opacity: 0.55;
+  filter: blur(12px);
+  opacity: 0.5;
   animation: electric-rotate 4.2s linear infinite reverse;
+}
+
+body.lilly-player.is-vibing .electric-border__glow {
+  opacity: 0.82;
+  filter: blur(14px) saturate(1.35);
 }
 
 .electric-border__arc {
@@ -223,13 +265,13 @@ body.lilly-player.beat-hit .electric-border {
   background: conic-gradient(
     from var(--electric-angle),
     transparent 0deg,
-    color-mix(in srgb, var(--theme-accent) 80%, white) 28deg,
+    var(--theme-electric-spark) 28deg,
     transparent 56deg,
-    var(--theme-accent) 96deg,
+    var(--theme-electric-hot) 96deg,
     transparent 136deg,
-    var(--theme-card-glow) 188deg,
+    var(--theme-electric-core) 188deg,
     transparent 228deg,
-    color-mix(in srgb, var(--theme-accent) 65%, white) 280deg,
+    var(--theme-electric-spark) 280deg,
     transparent 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box,

@@ -208,6 +208,10 @@ const LILLY_DEFAULT_THEME = {
 };
 
 const ART_THEME_MIX = 0.86;
+const ART_ACTIVE_MIX = 0.96;
+
+let lastArtPalette = null;
+let themeActive = false;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -252,36 +256,44 @@ function getDefaultTheme() {
   });
 }
 
-function buildTheme({ primary, vibrant, muted, isDefault = false }) {
+function buildTheme({ primary, vibrant, muted, isDefault = false, active = false }) {
   const fallback = LILLY_DEFAULT_THEME;
-  const mix = isDefault ? 1 : ART_THEME_MIX;
+  const mix = isDefault ? 1 : active ? ART_ACTIVE_MIX : ART_THEME_MIX;
 
   const bg = blendRgb(primary, fallback.bg, mix);
   const bgDeep = blendRgb(muted, fallback.bgDeep, mix);
-  const accent = blendRgb(vibrant, fallback.accent, Math.min(1, mix + 0.06));
+  const accent = blendRgb(vibrant, fallback.accent, Math.min(1, mix + (active ? 0.04 : 0.06)));
 
-  const card = blendRgb(primary, [255, 255, 255], isDefault ? 0.18 : 0.38);
-  const cardBorder = blendRgb(accent, primary, 0.62);
-  const cardGlow = blendRgb(accent, primary, 0.35);
+  const cardWhiteMix = isDefault ? 0.18 : active ? 0.2 : 0.38;
+  const card = blendRgb(primary, [255, 255, 255], cardWhiteMix);
+  const cardBorder = blendRgb(accent, primary, active ? 0.78 : 0.62);
+  const cardGlow = blendRgb(vibrant, primary, active ? 0.55 : 0.35);
 
   const cardLight = luminance(card) > 0.58;
   const text = cardLight ? [34, 22, 26] : [248, 244, 245];
   const textMutedAlpha = cardLight ? 0.64 : 0.72;
 
+  const sparkWhite = active ? 0.06 : 0.2;
+  const hotWhite = active ? 0.1 : 0.28;
+
   return {
     bg,
     bgDeep,
     accent,
-    card: rgbCss(card, isDefault ? 0.92 : 0.84),
-    cardBorder: rgbCss(cardBorder, isDefault ? 0.75 : 0.68),
-    cardGlow: rgbCss(cardGlow, 0.34),
+    card: rgbCss(card, isDefault ? 0.92 : active ? 0.78 : 0.84),
+    cardBorder: rgbCss(cardBorder, isDefault ? 0.75 : active ? 0.82 : 0.68),
+    cardGlow: rgbCss(cardGlow, active ? 0.52 : 0.34),
     text: rgbCss(text),
     textMuted: rgbCss(text, textMutedAlpha),
-    shadow: rgbCss(shiftRgb(accent, -24), 0.34),
+    shadow: rgbCss(shiftRgb(accent, -24), active ? 0.42 : 0.34),
     control: rgbCss(text, cardLight ? 0.1 : 0.14),
     controlHover: rgbCss(text, cardLight ? 0.16 : 0.22),
-    blurOverlay: rgbCss(blendRgb(primary, bgDeep, 0.55), isDefault ? 0.58 : 0.72),
-    blurSaturation: isDefault ? 1.35 : 1.65,
+    blurOverlay: rgbCss(blendRgb(primary, bgDeep, active ? 0.72 : 0.55), isDefault ? 0.58 : active ? 0.84 : 0.72),
+    blurSaturation: isDefault ? 1.35 : active ? 2.05 : 1.65,
+    electricHot: rgbCss(blendRgb(vibrant, [255, 255, 255], hotWhite)),
+    electricCore: rgbCss(blendRgb(primary, vibrant, active ? 0.28 : 0.45)),
+    electricSpark: rgbCss(blendRgb(vibrant, [255, 255, 255], sparkWhite)),
+    electricGlow: rgbCss(blendRgb(vibrant, primary, 0.35), active ? 0.72 : 0.45),
   };
 }
 
@@ -302,7 +314,27 @@ function applyLillyTheme(theme) {
   root.style.setProperty("--theme-control-hover", theme.controlHover);
   root.style.setProperty("--theme-blur-overlay", theme.blurOverlay);
   root.style.setProperty("--theme-blur-saturation", theme.blurSaturation);
+  root.style.setProperty("--theme-electric-hot", theme.electricHot);
+  root.style.setProperty("--theme-electric-core", theme.electricCore);
+  root.style.setProperty("--theme-electric-spark", theme.electricSpark);
+  root.style.setProperty("--theme-electric-glow", theme.electricGlow);
 }
+
+function refreshTheme() {
+  if (lastArtPalette) {
+    applyLillyTheme(buildTheme({ ...lastArtPalette, active: themeActive }));
+    return;
+  }
+
+  applyLillyTheme(getDefaultTheme());
+}
+
+function setThemeActive(active) {
+  themeActive = active;
+  refreshTheme();
+}
+
+window.lillyTheme = { setActive: setThemeActive, refresh: refreshTheme };
 
 function extractPalette(image) {
   const canvas = document.createElement("canvas");
@@ -369,11 +401,13 @@ function extractPalette(image) {
 function applyThemeFromImage(image) {
   const palette = extractPalette(image);
   if (!palette) {
+    lastArtPalette = null;
     applyLillyTheme(getDefaultTheme());
     return;
   }
 
-  applyLillyTheme(buildTheme(palette));
+  lastArtPalette = palette;
+  applyLillyTheme(buildTheme({ ...palette, active: themeActive }));
 }
 
 function setAlbumArt(url, { skipTheme = false } = {}) {
@@ -404,6 +438,7 @@ function setAlbumArt(url, { skipTheme = false } = {}) {
   next.onerror = () => {
     img.classList.remove("is-loading");
     applyLillyTheme(getDefaultTheme());
+    lastArtPalette = null;
   };
   next.src = absoluteUrl;
 }
@@ -417,6 +452,7 @@ function updateNowPlaying(metadata, isOffline) {
     if (artistEl) artistEl.textContent = "—";
     if (titleEl) setMarqueeTitle(titleEl, "Stream offline");
     applyLillyTheme(getDefaultTheme());
+    lastArtPalette = null;
     setAlbumArt(defaultAlbumArt, { skipTheme: true });
     return;
   }
