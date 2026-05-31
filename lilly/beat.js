@@ -12,6 +12,8 @@
   let rafId = null;
   let displayEnergy = 0;
   let freqData = null;
+  let prevSpectrum = null;
+  let fluxBaseline = 0;
 
   function init() {
     if (audioCtx) return true;
@@ -21,14 +23,15 @@
       source = audioCtx.createMediaElementSource(audio);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.82;
-      analyser.minDecibels = -90;
-      analyser.maxDecibels = -10;
+      analyser.smoothingTimeConstant = 0.35;
+      analyser.minDecibels = -85;
+      analyser.maxDecibels = -25;
 
       source.connect(analyser);
       analyser.connect(audioCtx.destination);
 
       freqData = new Uint8Array(analyser.frequencyBinCount);
+      prevSpectrum = new Uint8Array(analyser.frequencyBinCount);
       return true;
     } catch (err) {
       console.warn("Beat visualizer unavailable:", err);
@@ -36,38 +39,52 @@
     }
   }
 
-  function readBassEnergy() {
-    if (!freqData) return 0;
+  function readBeatTransient() {
+    if (!freqData || !prevSpectrum) return 0;
 
     analyser.getByteFrequencyData(freqData);
 
-    let sum = 0;
-    const bins = Math.min(10, freqData.length);
+    let flux = 0;
+    const bins = Math.min(24, freqData.length);
+
     for (let i = 0; i < bins; i += 1) {
-      sum += freqData[i];
+      const rise = freqData[i] - prevSpectrum[i];
+      if (rise > 0) flux += rise;
+      prevSpectrum[i] = freqData[i];
     }
 
-    return sum / (bins * 255);
+    flux /= bins * 255;
+
+    fluxBaseline = fluxBaseline * 0.965 + flux * 0.035;
+
+    const excess = Math.max(0, flux - fluxBaseline * 1.25);
+    return Math.min(1, excess / 0.07);
   }
 
   function tick() {
     if (!analyser || audio.paused) {
-      displayEnergy *= 0.9;
-      if (displayEnergy < 0.003) displayEnergy = 0;
+      displayEnergy *= 0.85;
+      if (displayEnergy < 0.002) displayEnergy = 0;
       applyEnergy(displayEnergy);
 
       if (!audio.paused || displayEnergy > 0) {
         rafId = requestAnimationFrame(tick);
       } else {
         document.body.classList.remove("is-vibing");
+        fluxBaseline = 0;
         rafId = null;
       }
       return;
     }
 
-    const bass = readBassEnergy();
-    const shaped = Math.pow(Math.min(1, bass * 2.2), 1.35);
-    displayEnergy = displayEnergy * 0.78 + shaped * 0.22;
+    const hit = readBeatTransient();
+    const peak = hit * hit;
+
+    if (peak > displayEnergy) {
+      displayEnergy = peak;
+    } else {
+      displayEnergy *= 0.8;
+    }
 
     applyEnergy(displayEnergy);
     rafId = requestAnimationFrame(tick);
@@ -77,15 +94,9 @@
     const energy = value.toFixed(4);
     document.body.style.setProperty("--beat-energy", energy);
 
-    if (player) {
-      player.style.setProperty("--beat-energy", energy);
-    }
-    if (artFrame) {
-      artFrame.style.setProperty("--beat-energy", energy);
-    }
-    if (bgBlur) {
-      bgBlur.style.setProperty("--beat-energy", energy);
-    }
+    if (player) player.style.setProperty("--beat-energy", energy);
+    if (artFrame) artFrame.style.setProperty("--beat-energy", energy);
+    if (bgBlur) bgBlur.style.setProperty("--beat-energy", energy);
   }
 
   async function start() {
@@ -95,10 +106,12 @@
       await audioCtx.resume();
     }
 
+    fluxBaseline = 0;
+    displayEnergy = 0;
+    if (prevSpectrum) prevSpectrum.fill(0);
+
     document.body.classList.add("is-vibing");
-    if (!rafId) {
-      rafId = requestAnimationFrame(tick);
-    }
+    if (!rafId) rafId = requestAnimationFrame(tick);
   }
 
   function stop() {
