@@ -1,22 +1,22 @@
 (function () {
   const audio = document.getElementById("audioplayer");
-  const player = document.getElementById("player-container");
   const artFrame = document.querySelector(".art-frame");
-  const bgBlur = document.getElementById("bg-blur");
+  const body = document.body;
 
-  if (!audio || !player) return;
+  if (!audio || !artFrame) return;
 
-  const ATTACK = 0.18;
-  const RELEASE = 0.07;
+  const BEAT_RATIO = 2.4;
+  const MIN_GAP_MS = 560;
 
   let audioCtx = null;
   let analyser = null;
   let source = null;
   let rafId = null;
-  let displayEnergy = 0;
   let freqData = null;
   let prevSpectrum = null;
   let fluxBaseline = 0;
+  let lastBeatTime = 0;
+  let pulsing = false;
 
   function init() {
     if (audioCtx) return true;
@@ -26,7 +26,7 @@
       source = audioCtx.createMediaElementSource(audio);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.45;
+      analyser.smoothingTimeConstant = 0.55;
       analyser.minDecibels = -85;
       analyser.maxDecibels = -25;
 
@@ -42,13 +42,13 @@
     }
   }
 
-  function readBeatTransient() {
-    if (!freqData || !prevSpectrum) return 0;
+  function measureFlux() {
+    if (!freqData || !prevSpectrum) return { flux: 0, ratio: 0 };
 
     analyser.getByteFrequencyData(freqData);
 
     let flux = 0;
-    const bins = Math.min(24, freqData.length);
+    const bins = Math.min(20, freqData.length);
 
     for (let i = 0; i < bins; i += 1) {
       const rise = freqData[i] - prevSpectrum[i];
@@ -57,50 +57,57 @@
     }
 
     flux /= bins * 255;
+    fluxBaseline = fluxBaseline * 0.985 + flux * 0.015;
 
-    fluxBaseline = fluxBaseline * 0.97 + flux * 0.03;
-
-    const excess = Math.max(0, flux - fluxBaseline * 1.2);
-    return Math.min(1, excess / 0.06);
+    const ratio = flux / (fluxBaseline + 0.004);
+    return { flux, ratio };
   }
 
-  function smoothEnergy(target) {
-    const rate = target > displayEnergy ? ATTACK : RELEASE;
-    displayEnergy += (target - displayEnergy) * rate;
+  function triggerPulse(ratio) {
+    const strength = Math.min(1, Math.max(0.55, (ratio - BEAT_RATIO) / 2.8 + 0.65));
+
+    body.style.setProperty("--pulse-power", strength.toFixed(2));
+    body.classList.remove("beat-hit");
+    void body.offsetWidth;
+    body.classList.add("beat-hit");
+
+    pulsing = true;
+    lastBeatTime = performance.now();
   }
+
+  function onPulseEnd(event) {
+    if (event.animationName !== "beat-art") return;
+    body.classList.remove("beat-hit");
+    pulsing = false;
+  }
+
+  artFrame.addEventListener("animationend", onPulseEnd);
 
   function tick() {
     if (!analyser || audio.paused) {
-      smoothEnergy(0);
-
-      if (displayEnergy < 0.002) displayEnergy = 0;
-      applyEnergy(displayEnergy);
-
-      if (!audio.paused || displayEnergy > 0) {
+      if (!audio.paused || pulsing) {
         rafId = requestAnimationFrame(tick);
       } else {
-        document.body.classList.remove("is-vibing");
+        body.classList.remove("is-vibing", "beat-hit");
         fluxBaseline = 0;
+        pulsing = false;
         rafId = null;
       }
       return;
     }
 
-    const hit = readBeatTransient();
-    const peak = Math.pow(hit, 1.45);
+    const { ratio } = measureFlux();
+    const now = performance.now();
 
-    smoothEnergy(peak);
-    applyEnergy(displayEnergy);
+    if (
+      !pulsing &&
+      ratio > BEAT_RATIO &&
+      now - lastBeatTime > MIN_GAP_MS
+    ) {
+      triggerPulse(ratio);
+    }
+
     rafId = requestAnimationFrame(tick);
-  }
-
-  function applyEnergy(value) {
-    const energy = value.toFixed(4);
-    document.body.style.setProperty("--beat-energy", energy);
-
-    if (player) player.style.setProperty("--beat-energy", energy);
-    if (artFrame) artFrame.style.setProperty("--beat-energy", energy);
-    if (bgBlur) bgBlur.style.setProperty("--beat-energy", energy);
   }
 
   async function start() {
@@ -111,10 +118,11 @@
     }
 
     fluxBaseline = 0;
-    displayEnergy = 0;
+    lastBeatTime = 0;
+    pulsing = false;
     if (prevSpectrum) prevSpectrum.fill(0);
 
-    document.body.classList.add("is-vibing");
+    body.classList.add("is-vibing");
     if (!rafId) rafId = requestAnimationFrame(tick);
   }
 
