@@ -2,48 +2,34 @@ var mountPoint = window.location.pathname.split("/")[1];
 const defaultAlbumArt = "/default-art.jpg"; // ✅ absolute path from root
 
 const SHOUTCAST_STREAMS = {
-  lilly: {
-    statsUrl: "http://music.elsewhere.moe:18000/stats",
-    sid: 1,
-  },
+  lilly: { sid: 1 },
 };
 
-function shoutcastSongTitle({ statsUrl, sid }) {
-  return new Promise((resolve, reject) => {
-    const callbackName = `shoutcastCb_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2)}`;
-    const script = document.createElement("script");
+let shoutcastReadyPromise = null;
 
-    const cleanup = () => {
-      delete window[callbackName];
-      script.remove();
-    };
+function ensureShoutcastProxy() {
+  if (!("serviceWorker" in navigator)) {
+    return Promise.reject(new Error("Service workers are not supported"));
+  }
 
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("Shoutcast stats timeout"));
-    }, 8000);
+  if (!shoutcastReadyPromise) {
+    shoutcastReadyPromise = navigator.serviceWorker
+      .register("/sw.js")
+      .then(() => navigator.serviceWorker.ready);
+  }
 
-    window[callbackName] = (data) => {
-      clearTimeout(timeout);
-      cleanup();
-      if (!data || data.streamstatus !== 1 || !data.songtitle) {
-        resolve(null);
-        return;
-      }
-      resolve(data.songtitle.trim());
-    };
+  return shoutcastReadyPromise;
+}
 
-    script.onerror = () => {
-      clearTimeout(timeout);
-      cleanup();
-      reject(new Error("Failed to load Shoutcast stats"));
-    };
+window.ensureShoutcastProxy = ensureShoutcastProxy;
 
-    script.src = `${statsUrl}?sid=${sid}&json=1&callback=${callbackName}`;
-    document.head.appendChild(script);
-  });
+async function shoutcastSongTitle({ sid }) {
+  await ensureShoutcastProxy();
+  const response = await fetch(`/api/shoutcast/stats?sid=${sid}`);
+  const data = await response.json();
+
+  if (!data || data.streamstatus !== 1 || !data.songtitle) return null;
+  return data.songtitle.trim();
 }
 
 async function icecastSongTitle(mountPoint) {
@@ -109,7 +95,20 @@ async function setTitle(mountPoint) {
   }
 }
 
-const intervalTimerId = window.setInterval(setTitle, 3000, mountPoint);
+async function initTitlePolling(mountPoint) {
+  if (SHOUTCAST_STREAMS[mountPoint]) {
+    try {
+      await ensureShoutcastProxy();
+    } catch (err) {
+      console.error("Shoutcast proxy setup failed:", err);
+    }
+  }
+
+  setTitle(mountPoint);
+  window.setInterval(setTitle, 3000, mountPoint);
+}
+
+initTitlePolling(mountPoint);
 
 // Enable click-to-copy on scroll-container
 document.getElementById("scroll-container").addEventListener("click", (e) => {

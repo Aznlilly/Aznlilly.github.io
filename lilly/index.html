@@ -90,10 +90,7 @@
     </div>
 
     <audio id="audioplayer" autoplay preload="none">
-      <source
-        src="http://music.elsewhere.moe:18000/stream?sid=1"
-        type="audio/mpeg"
-      />
+      <source src="/api/shoutcast/stream?sid=1" type="audio/mpeg" />
     </audio>
 
     <script src="../songtitle.js"></script>
@@ -128,7 +125,7 @@
         titleElements.forEach((el) => (el.textContent = text));
       }
 
-      function startStream() {
+      async function startStream() {
         message.classList.add("hidden");
         spinner.classList.add("visible");
 
@@ -143,6 +140,14 @@
           albumArt.src = "../default-art.jpg";
           fadeInUI();
         }, 10000);
+
+        try {
+          if (window.ensureShoutcastProxy) {
+            await window.ensureShoutcastProxy();
+          }
+        } catch (err) {
+          console.warn("Shoutcast proxy setup failed:", err);
+        }
 
         audio
           .play()
