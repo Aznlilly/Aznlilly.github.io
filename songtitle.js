@@ -207,9 +207,6 @@ const LILLY_DEFAULT_THEME = {
   accent: [168, 85, 99],
 };
 
-const ART_THEME_MIX = 0.86;
-const ART_ACTIVE_MIX = 0.96;
-
 let lastArtPalette = null;
 let themeActive = false;
 
@@ -257,43 +254,66 @@ function getDefaultTheme() {
 }
 
 function buildTheme({ primary, vibrant, muted, isDefault = false, active = false }) {
-  const fallback = LILLY_DEFAULT_THEME;
-  const mix = isDefault ? 1 : active ? ART_ACTIVE_MIX : ART_THEME_MIX;
+  if (isDefault) {
+    const { bg, bgDeep, accent } = LILLY_DEFAULT_THEME;
+    const card = blendRgb(bg, [255, 255, 255], 0.18);
+    const cardBorder = blendRgb(accent, bg, 0.62);
+    const cardGlow = blendRgb(accent, bg, 0.35);
+    const cardLight = luminance(card) > 0.58;
+    const text = cardLight ? [34, 22, 26] : [248, 244, 245];
+    const textMutedAlpha = cardLight ? 0.64 : 0.72;
 
-  const bg = blendRgb(primary, fallback.bg, mix);
-  const bgDeep = blendRgb(muted, fallback.bgDeep, mix);
-  const accent = blendRgb(vibrant, fallback.accent, Math.min(1, mix + (active ? 0.04 : 0.06)));
+    return {
+      bg,
+      bgDeep,
+      accent,
+      card: rgbCss(card, 0.92),
+      cardBorder: rgbCss(cardBorder, 0.75),
+      cardGlow: rgbCss(cardGlow, 0.34),
+      text: rgbCss(text),
+      textMuted: rgbCss(text, textMutedAlpha),
+      shadow: rgbCss(shiftRgb(accent, -24), 0.34),
+      control: rgbCss(text, cardLight ? 0.1 : 0.14),
+      controlHover: rgbCss(text, cardLight ? 0.16 : 0.22),
+      blurOverlay: rgbCss(blendRgb(bg, bgDeep, 0.55), 0.58),
+      blurSaturation: 1.35,
+      electricHot: rgbCss(accent),
+      electricCore: rgbCss(blendRgb(bg, accent, 0.45)),
+      electricSpark: rgbCss(blendRgb(accent, [255, 255, 255], 0.2)),
+      electricGlow: rgbCss(blendRgb(accent, bg, 0.35), 0.45),
+    };
+  }
 
-  const cardWhiteMix = isDefault ? 0.18 : active ? 0.2 : 0.38;
-  const card = blendRgb(primary, [255, 255, 255], cardWhiteMix);
-  const cardBorder = blendRgb(accent, primary, active ? 0.78 : 0.62);
-  const cardGlow = blendRgb(vibrant, primary, active ? 0.55 : 0.35);
+  const bg = primary;
+  const bgDeep = muted;
+  const accent = vibrant;
+
+  const card = blendRgb(primary, vibrant, active ? 0.38 : 0.26);
+  const cardBorder = blendRgb(vibrant, primary, active ? 0.75 : 0.62);
+  const cardGlow = blendRgb(vibrant, primary, active ? 0.62 : 0.48);
 
   const cardLight = luminance(card) > 0.58;
   const text = cardLight ? [34, 22, 26] : [248, 244, 245];
   const textMutedAlpha = cardLight ? 0.64 : 0.72;
 
-  const sparkWhite = active ? 0.06 : 0.2;
-  const hotWhite = active ? 0.1 : 0.28;
-
   return {
     bg,
     bgDeep,
     accent,
-    card: rgbCss(card, isDefault ? 0.92 : active ? 0.78 : 0.84),
-    cardBorder: rgbCss(cardBorder, isDefault ? 0.75 : active ? 0.82 : 0.68),
-    cardGlow: rgbCss(cardGlow, active ? 0.52 : 0.34),
+    card: rgbCss(card, active ? 0.74 : 0.82),
+    cardBorder: rgbCss(cardBorder, active ? 0.85 : 0.72),
+    cardGlow: rgbCss(cardGlow, active ? 0.58 : 0.42),
     text: rgbCss(text),
     textMuted: rgbCss(text, textMutedAlpha),
-    shadow: rgbCss(shiftRgb(accent, -24), active ? 0.42 : 0.34),
+    shadow: rgbCss(shiftRgb(accent, -24), active ? 0.44 : 0.36),
     control: rgbCss(text, cardLight ? 0.1 : 0.14),
     controlHover: rgbCss(text, cardLight ? 0.16 : 0.22),
-    blurOverlay: rgbCss(blendRgb(primary, bgDeep, active ? 0.72 : 0.55), isDefault ? 0.58 : active ? 0.84 : 0.72),
-    blurSaturation: isDefault ? 1.35 : active ? 2.05 : 1.65,
-    electricHot: rgbCss(blendRgb(vibrant, [255, 255, 255], hotWhite)),
-    electricCore: rgbCss(blendRgb(primary, vibrant, active ? 0.28 : 0.45)),
-    electricSpark: rgbCss(blendRgb(vibrant, [255, 255, 255], sparkWhite)),
-    electricGlow: rgbCss(blendRgb(vibrant, primary, 0.35), active ? 0.72 : 0.45),
+    blurOverlay: rgbCss(blendRgb(primary, muted, active ? 0.68 : 0.52), active ? 0.86 : 0.74),
+    blurSaturation: active ? 2.15 : 1.85,
+    electricHot: rgbCss(blendRgb(vibrant, [255, 255, 255], active ? 0.04 : 0.12)),
+    electricCore: rgbCss(blendRgb(primary, vibrant, active ? 0.32 : 0.48)),
+    electricSpark: rgbCss(blendRgb(vibrant, [255, 255, 255], active ? 0.02 : 0.08)),
+    electricGlow: rgbCss(blendRgb(vibrant, primary, 0.25), active ? 0.78 : 0.55),
   };
 }
 
@@ -354,6 +374,10 @@ function extractPalette(image) {
   let weightSum = 0;
   let bestSatScore = 0;
   let vibrant = null;
+  let darkR = 0;
+  let darkG = 0;
+  let darkB = 0;
+  let darkWeight = 0;
 
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
@@ -369,7 +393,7 @@ function extractPalette(image) {
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const saturation = max === 0 ? 0 : (max - min) / max;
-    const weight = 0.35 + saturation * 1.35;
+    const weight = 0.25 + saturation * 1.65;
 
     rSum += r * weight;
     gSum += g * weight;
@@ -381,6 +405,14 @@ function extractPalette(image) {
       bestSatScore = satScore;
       vibrant = [r, g, b];
     }
+
+    if (brightness < 118 && saturation > 0.08) {
+      const darkPixelWeight = (118 - brightness) * (0.4 + saturation);
+      darkR += r * darkPixelWeight;
+      darkG += g * darkPixelWeight;
+      darkB += b * darkPixelWeight;
+      darkWeight += darkPixelWeight;
+    }
   }
 
   if (!weightSum) return null;
@@ -391,10 +423,18 @@ function extractPalette(image) {
     Math.round(bSum / weightSum),
   ];
 
+  const muted = darkWeight
+    ? [
+        Math.round(darkR / darkWeight),
+        Math.round(darkG / darkWeight),
+        Math.round(darkB / darkWeight),
+      ]
+    : shiftRgb(primary, -36);
+
   return {
     primary,
     vibrant: vibrant || primary,
-    muted: shiftRgb(primary, -32),
+    muted,
   };
 }
 
@@ -429,9 +469,13 @@ function setAlbumArt(url, { skipTheme = false } = {}) {
     img.dataset.current = absoluteUrl;
     img.classList.remove("is-loading");
     if (blur) {
-      blur.style.backgroundImage = skipTheme ? "none" : `url("${absoluteUrl}")`;
+      blur.style.backgroundImage =
+        skipTheme || isLogo ? "none" : `url("${absoluteUrl}")`;
     }
-    if (!skipTheme) {
+    if (isLogo) {
+      lastArtPalette = null;
+      applyLillyTheme(getDefaultTheme());
+    } else if (!skipTheme) {
       applyThemeFromImage(next);
     }
   };
