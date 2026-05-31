@@ -1,11 +1,139 @@
 var mountPoint = window.location.pathname.split("/")[1];
-const defaultAlbumArt = "/default-art.jpg"; // ✅ absolute path from root
+const defaultAlbumArt = "/default-art.jpg";
 
 const SHOUTCAST_ORIGIN = "https://music.elsewhere.moe";
 
 const SHOUTCAST_STREAMS = {
   lilly: { sid: 1 },
 };
+
+const artCache = new Map();
+let lastRawTitle = null;
+
+function parseTrackMetadata(raw) {
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  const parts = cleaned.split(/\s-\s/).map((p) => p.trim()).filter(Boolean);
+
+  if (parts.length >= 2) {
+    return {
+      artist: parts[0],
+      track: parts.slice(1).join(" - "),
+      raw: cleaned,
+    };
+  }
+
+  return { artist: "", track: cleaned, raw: cleaned };
+}
+
+function normalizeForMatch(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreTrackResult(result, artist, track, source) {
+  const trackNorm = normalizeForMatch(track);
+  const artistNorm = normalizeForMatch(artist);
+  const nameNorm = normalizeForMatch(
+    source === "deezer" ? result.title : result.trackName
+  );
+  const artistResultNorm = normalizeForMatch(
+    source === "deezer" ? result.artist?.name : result.artistName
+  );
+
+  let score = 0;
+
+  if (trackNorm && nameNorm === trackNorm) score += 12;
+  else if (trackNorm && nameNorm.includes(trackNorm)) score += 6;
+
+  if (artistNorm && artistResultNorm === artistNorm) score += 10;
+  else if (artistNorm && artistResultNorm.includes(artistNorm)) score += 5;
+
+  return score;
+}
+
+function pickBestResult(results, artist, track, source) {
+  return results
+    .map((result) => ({
+      result,
+      score: scoreTrackResult(result, artist, track, source),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)[0]?.result;
+}
+
+async function searchItunes(artist, track) {
+  const queries = [];
+
+  if (artist && track) queries.push(`${artist} ${track}`);
+  if (track) queries.push(track);
+  if (artist) queries.push(artist);
+
+  for (const query of queries) {
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=8`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.resultCount) continue;
+
+    const best = pickBestResult(data.results, artist, track, "itunes");
+    if (best?.artworkUrl100) {
+      return best.artworkUrl100.replace("100x100bb", "600x600bb").replace("100x100", "600x600");
+    }
+  }
+
+  return null;
+}
+
+async function searchDeezer(artist, track) {
+  const queries = [];
+
+  if (artist && track) queries.push(`artist:"${artist}" track:"${track}"`);
+  if (track) queries.push(track);
+
+  for (const query of queries) {
+    const url = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=8`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.data?.length) continue;
+
+    const best = pickBestResult(data.data, artist, track, "deezer");
+    if (best?.album?.cover_xl) return best.album.cover_xl;
+    if (best?.album?.cover_big) return best.album.cover_big;
+  }
+
+  return null;
+}
+
+async function fetchAlbumArt(metadata) {
+  const { artist, track, raw } = metadata;
+  const cacheKey = `${artist}|${track}`;
+
+  if (artCache.has(cacheKey)) {
+    return artCache.get(cacheKey);
+  }
+
+  const genericTitles = /^(various artists|unknown|loading|offline)$/i;
+  if (!track || genericTitles.test(track)) {
+    return defaultAlbumArt;
+  }
+
+  try {
+    const art =
+      (await searchItunes(artist, track)) ||
+      (await searchDeezer(artist, track));
+
+    const url = art || defaultAlbumArt;
+    artCache.set(cacheKey, url);
+    return url;
+  } catch (err) {
+    console.warn("Album art fetch failed:", err);
+    return defaultAlbumArt;
+  }
+}
 
 async function fetchShoutcastStats(sid) {
   const response = await fetch(`${SHOUTCAST_ORIGIN}/stats?sid=${sid}&json=1`);
@@ -42,74 +170,127 @@ async function songTitle(mountPoint) {
   return icecastSongTitle(mountPoint);
 }
 
-async function fetchAlbumArt(title) {
-  const query = encodeURIComponent(title);
-  const url = `https://itunes.apple.com/search?term=${query}&entity=song&limit=1`;
+function updateLegacyTitles(text) {
+  document.querySelectorAll(".scroll-title").forEach((el) => {
+    el.textContent = text;
+  });
 
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (data.resultCount > 0) {
-      return data.results[0].artworkUrl100.replace("100x100", "300x300");
-    }
-  } catch (err) {
-    console.warn("Album art fetch failed:", err);
-  }
-
-  return defaultAlbumArt;
+  const legacy = document.getElementById("currentsongtitletext");
+  if (legacy) legacy.textContent = text;
 }
 
-function updateScrollTitles(text) {
-  const titleElements = document.querySelectorAll(".scroll-title");
-  titleElements.forEach(el => el.textContent = text);
+function setMarqueeTitle(element, text) {
+  element.classList.remove("is-marquee");
+  element.textContent = text;
+
+  requestAnimationFrame(() => {
+    if (element.scrollWidth > element.clientWidth + 4) {
+      element.classList.add("is-marquee");
+      element.innerHTML = `<span class="marquee-inner">${text} &nbsp;·&nbsp; ${text}</span>`;
+    }
+  });
+}
+
+function setAlbumArt(url) {
+  const img = document.getElementById("albumart");
+  const blur = document.getElementById("bg-blur");
+  if (!img) return;
+
+  const absoluteUrl = new URL(url, window.location.origin).href;
+  if (img.dataset.current === absoluteUrl) return;
+
+  img.classList.add("is-loading");
+
+  const next = new Image();
+  next.onload = () => {
+    img.src = absoluteUrl;
+    img.dataset.current = absoluteUrl;
+    img.classList.remove("is-loading");
+    if (blur) blur.style.backgroundImage = `url("${absoluteUrl}")`;
+  };
+  next.onerror = () => {
+    img.classList.remove("is-loading");
+  };
+  next.src = absoluteUrl;
+}
+
+function updateNowPlaying(metadata, isOffline) {
+  const artistEl = document.getElementById("track-artist");
+  const titleEl = document.getElementById("track-title");
+
+  if (isOffline) {
+    updateLegacyTitles("OFFLINE");
+    if (artistEl) artistEl.textContent = "—";
+    if (titleEl) setMarqueeTitle(titleEl, "Stream offline");
+    setAlbumArt(defaultAlbumArt);
+    return;
+  }
+
+  const display = metadata.artist
+    ? `${metadata.artist} — ${metadata.track}`
+    : metadata.track;
+
+  updateLegacyTitles(display);
+
+  if (artistEl) {
+    artistEl.textContent = metadata.artist || "Now playing";
+  }
+
+  if (titleEl) {
+    setMarqueeTitle(titleEl, metadata.track || metadata.raw);
+  }
 }
 
 async function setTitle(mountPoint) {
   try {
-    const title = await songTitle(mountPoint);
-    if (!title) {
-      updateScrollTitles("OFFLINE");
-      document.getElementById("albumart").src = defaultAlbumArt;
+    const raw = await songTitle(mountPoint);
+
+    if (!raw) {
+      lastRawTitle = null;
+      updateNowPlaying({ artist: "", track: "", raw: "" }, true);
       return;
     }
 
-    updateScrollTitles(title);
+    if (raw === lastRawTitle) return;
 
-    const artUrl = await fetchAlbumArt(title);
-    document.getElementById("albumart").src = artUrl || defaultAlbumArt;
+    lastRawTitle = raw;
+    const metadata = parseTrackMetadata(raw);
+
+    updateNowPlaying(metadata, false);
+
+    const artUrl = await fetchAlbumArt(metadata);
+    setAlbumArt(artUrl || defaultAlbumArt);
   } catch (err) {
     console.error("Error in setTitle:", err);
-    updateScrollTitles("OFFLINE");
-    document.getElementById("albumart").src = defaultAlbumArt;
+    lastRawTitle = null;
+    updateNowPlaying({ artist: "", track: "", raw: "" }, true);
   }
 }
 
 setTitle(mountPoint);
-window.setInterval(setTitle, 3000, mountPoint);
+window.setInterval(setTitle, 5000, mountPoint);
 
-// Enable click-to-copy on scroll-container
-document.getElementById("scroll-container").addEventListener("click", (e) => {
-  const titleEl = document.querySelector(".scroll-title");
-  if (!titleEl) return;
+const copyTarget =
+  document.getElementById("track-title") ||
+  document.getElementById("scroll-container");
 
-  const text = titleEl.textContent.trim();
-  if (!text) return;
+if (copyTarget) {
+  copyTarget.addEventListener("click", (e) => {
+    const text = lastRawTitle?.trim();
+    if (!text || text === "OFFLINE") return;
 
-  navigator.clipboard.writeText(text).then(() => {
-    const tooltip = document.getElementById("copy-tooltip");
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        const tooltip = document.getElementById("copy-tooltip");
+        if (!tooltip) return;
 
-    // Position it near the mouse
-    tooltip.style.left = `${e.clientX}px`;
-    tooltip.style.top = `${e.clientY}px`;
+        tooltip.style.left = `${e.clientX}px`;
+        tooltip.style.top = `${e.clientY}px`;
+        tooltip.classList.add("visible");
 
-    tooltip.classList.add("visible");
-
-    // Hide after 1.5 seconds
-    setTimeout(() => {
-      tooltip.classList.remove("visible");
-    }, 1500);
-  }).catch(err => {
-    console.warn("Clipboard copy failed:", err);
+        setTimeout(() => tooltip.classList.remove("visible"), 1500);
+      })
+      .catch((err) => console.warn("Clipboard copy failed:", err));
   });
-});
+}

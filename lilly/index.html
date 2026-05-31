@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" type="text/css" href="../style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lilly's Mix</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
     <link
       rel="icon"
       type="image/png"
@@ -16,80 +18,62 @@
       sizes="180x180"
       href="../apple-touch-icon.png"
     />
-    <meta name="apple-mobile-web-app-title" content="/MyWebSite" />
+    <meta name="apple-mobile-web-app-title" content="Lilly's Mix" />
     <link rel="manifest" href="../site.webmanifest" />
   </head>
-  <body>
+  <body class="lilly-player">
+    <div id="bg-blur" aria-hidden="true"></div>
     <div id="copy-tooltip">Copied!</div>
+
     <div id="startup-overlay">
-      <div id="startup-message">Click to start stream</div>
+      <div id="startup-message">Tap to listen</div>
       <div id="loading-spinner" class="hidden"></div>
     </div>
-    <div id="player-container">
-      <div id="player-left">
-        <div class="custom-audio-player">
-          <button id="play-button" aria-label="Pause" class="icon-button">
-            ❚❚
+
+    <main id="player-container" class="player-card">
+      <div class="art-frame">
+        <img id="albumart" src="../default-art.jpg" alt="Album art" />
+        <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+      </div>
+
+      <div class="player-body">
+        <p class="station-label">Lilly's Mix</p>
+        <p id="track-artist">—</p>
+        <h1 id="track-title">Loading…</h1>
+
+        <div class="controls">
+          <button id="play-button" aria-label="Play" class="icon-button">
+            <svg id="icon-play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <svg id="icon-pause" viewBox="0 0 24 24" aria-hidden="true" hidden>
+              <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+            </svg>
           </button>
 
-          <div class="volume-wrapper">
-            <button id="volume-button" aria-label="Volume" class="icon-button">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="black"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polygon points="5 9 9 9 13 5 13 19 9 15 5 15 5 9"></polygon>
-                <path d="M15 9.354a4 4 0 0 1 0 5.292"></path>
-                <path d="M17.5 7a7 7 0 0 1 0 10"></path>
+          <div class="volume-group">
+            <button id="volume-button" aria-label="Mute" class="icon-button">
+              <svg id="icon-volume" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4.03v8.05a4.5 4.5 0 0 0 2.5-4.02zM14 3.23v2.06a7 7 0 0 1 0 13.74v2.06a9 9 0 0 0 0-17.82z"
+                />
               </svg>
             </button>
-            <div class="volume-slider-container">
-              <input
-                type="range"
-                id="volume-slider"
-                min="0"
-                max="1"
-                step="0.01"
-                value="1"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div id="TitleContainer">
-          <div id="flexcontainer">
-            <strong>Song:</strong>
-            <div id="scroll-container">
-              <div id="scroll-text">
-                <span class="scroll-title">LOADING...</span>
-                <span class="spacer">&nbsp;&nbsp;&nbsp;</span>
-                <span class="scroll-title">LOADING...</span>
-                <span class="spacer">&nbsp;&nbsp;&nbsp;</span>
-                <span class="scroll-title">LOADING...</span>
-                <span class="spacer">&nbsp;&nbsp;&nbsp;</span>
-                <span class="scroll-title">LOADING...</span>
-                <span class="spacer">&nbsp;&nbsp;&nbsp;</span>
-                <span class="scroll-title">LOADING...</span>
-                <span class="spacer">&nbsp;&nbsp;&nbsp;</span>
-                <span class="scroll-title">LOADING...</span>
-                <span class="spacer">&nbsp;&nbsp;&nbsp;</span>
-                <span class="scroll-title">LOADING...</span>
-              </div>
-            </div>
+            <input
+              type="range"
+              id="volume-slider"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+              aria-label="Volume"
+            />
           </div>
         </div>
       </div>
+    </main>
 
-      <img id="albumart" src="../default-art.jpg" alt="Album Art" />
-    </div>
-
-    <audio id="audioplayer" autoplay preload="none">
+    <audio id="audioplayer" preload="none">
       <source
         src="https://music.elsewhere.moe/stream?sid=1"
         type="audio/mpeg"
@@ -100,32 +84,26 @@
     <script>
       const audio = document.getElementById("audioplayer");
       const playBtn = document.getElementById("play-button");
+      const iconPlay = document.getElementById("icon-play");
+      const iconPause = document.getElementById("icon-pause");
       const volumeBtn = document.getElementById("volume-button");
       const volumeSlider = document.getElementById("volume-slider");
-      const volumeContainer = document.querySelector(
-        ".volume-slider-container"
-      );
       const overlay = document.getElementById("startup-overlay");
       const message = document.getElementById("startup-message");
       const spinner = document.getElementById("loading-spinner");
       const playerContainer = document.getElementById("player-container");
-      const albumArt = document.getElementById("albumart");
-      const titleBlock = document.getElementById("TitleContainer");
 
       audio.volume = 1;
-      volumeSlider.value = 1;
-      playBtn.textContent = "▶";
+
+      function setPlayingUI(playing) {
+        iconPlay.hidden = playing;
+        iconPause.hidden = !playing;
+        playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+      }
 
       function fadeInUI() {
         overlay.classList.add("hidden");
         playerContainer.classList.add("visible");
-        titleBlock.classList.add("visible");
-        albumArt.classList.add("visible");
-      }
-
-      function updateScrollTitles(text) {
-        const titleElements = document.querySelectorAll(".scroll-title");
-        titleElements.forEach((el) => (el.textContent = text));
       }
 
       function startStream() {
@@ -138,9 +116,7 @@
           timedOut = true;
           spinner.classList.remove("visible");
           message.classList.remove("hidden");
-          message.textContent = "Stream is offline.";
-          updateScrollTitles("OFFLINE");
-          albumArt.src = "../default-art.jpg";
+          message.textContent = "Stream is offline";
           fadeInUI();
         }, 10000);
 
@@ -149,7 +125,7 @@
           .then(() => {
             if (timedOut) return;
             clearTimeout(fallbackTimer);
-            playBtn.textContent = "❚❚";
+            setPlayingUI(true);
             fadeInUI();
           })
           .catch((err) => {
@@ -158,7 +134,7 @@
             console.warn("Stream play failed:", err);
             spinner.classList.remove("visible");
             message.classList.remove("hidden");
-            message.textContent = "Click to try again";
+            message.textContent = "Tap to try again";
           });
       }
 
@@ -169,27 +145,21 @@
           startStream();
         } else {
           audio.pause();
-          playBtn.textContent = "▶";
+          setPlayingUI(false);
         }
       });
 
-      volumeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        volumeContainer.classList.toggle("visible");
+      volumeBtn.addEventListener("click", () => {
+        audio.muted = !audio.muted;
+        volumeSlider.value = audio.muted ? 0 : audio.volume || 1;
       });
 
       volumeSlider.addEventListener("input", () => {
         audio.volume = volumeSlider.value;
+        audio.muted = audio.volume === 0;
       });
 
-      document.addEventListener("click", (e) => {
-        if (
-          !volumeContainer.contains(e.target) &&
-          !volumeBtn.contains(e.target)
-        ) {
-          volumeContainer.classList.remove("visible");
-        }
-      });
+      setPlayingUI(false);
     </script>
   </body>
 </html>
