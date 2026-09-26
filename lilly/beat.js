@@ -6,18 +6,20 @@
 
   if (!audio || !artFrame) return;
 
-  const FFT_SIZE = 2048;
+  const FFT_SIZE = 4096;
   const ENV_MS = 10;
   const ENV_SECONDS = 8;
   const ENV_SIZE = Math.round((ENV_SECONDS * 1000) / ENV_MS);
-  const MIN_BPM = 78;
-  const MAX_BPM = 175;
-  const COMFY_BPM = 168;
-  const TEMPO_UPDATE_MS = 350;
-  const MIN_ENV_FOR_TEMPO = Math.round(ENV_SIZE * 0.45);
-  const MIN_ONSET_GAP = 270;
-  const FLUX_HISTORY = 72;
-  const ONSET_LIMIT = 28;
+  const MIN_BPM = 76;
+  const MAX_BPM = 172;
+  const COMFY_BPM = 160;
+  const TEMPO_UPDATE_MS = 450;
+  const MIN_ENV_FOR_TEMPO = Math.round(ENV_SIZE * 0.5);
+  const MIN_ONSET_GAP = 280;
+  const FLUX_HISTORY = 80;
+  const VOTE_WINDOW = 7;
+  const VOTES_TO_LOCK = 5;
+  const HOLD_MS = 4500;
   const RATIOS = [0.5, 2 / 3, 0.75, 4 / 3, 1.5, 2];
 
   let audioCtx = null;
@@ -26,8 +28,8 @@
   let rafId = null;
   let freqData = null;
   let kickStart = 1;
-  let kickEnd = 6;
-  let bodyEnd = 14;
+  let kickEnd = 8;
+  let bodyEnd = 16;
 
   let kickFloor = 0;
   let fluxHistory = [];
@@ -42,18 +44,17 @@
   let lastTempoUpdate = 0;
   let pulseClearTimer = 0;
 
-  let estimatedBpm = null;
   let displayBpm = null;
   let hintBpm = null;
   let pendingBpm = null;
   let pendingSince = 0;
-  let hintDisagreeSince = 0;
   let animBpm = null;
   let beatPeriod = null;
   let nextPulseTime = 0;
   let tempoConfidence = 0;
   let tempoLocked = false;
-  let recentOnsets = [];
+  let votes = [];
+  let bestPhaseLag = 0;
 
   function init() {
     if (audioCtx) return true;
@@ -63,18 +64,18 @@
       source = audioCtx.createMediaElementSource(audio);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = FFT_SIZE;
-      analyser.smoothingTimeConstant = 0.08;
-      analyser.minDecibels = -80;
-      analyser.maxDecibels = -20;
+      analyser.smoothingTimeConstant = 0.06;
+      analyser.minDecibels = -82;
+      analyser.maxDecibels = -18;
 
       source.connect(analyser);
       analyser.connect(audioCtx.destination);
 
       freqData = new Uint8Array(analyser.frequencyBinCount);
       const hzPerBin = audioCtx.sampleRate / analyser.fftSize;
-      kickStart = Math.max(1, Math.floor(48 / hzPerBin));
-      kickEnd = Math.max(kickStart + 2, Math.ceil(110 / hzPerBin));
-      bodyEnd = Math.max(kickEnd + 2, Math.ceil(180 / hzPerBin));
+      kickStart = Math.max(1, Math.floor(40 / hzPerBin));
+      kickEnd = Math.max(kickStart + 2, Math.ceil(100 / hzPerBin));
+      bodyEnd = Math.max(kickEnd + 2, Math.ceil(160 / hzPerBin));
       return true;
     } catch (err) {
       console.warn("Beat visualizer unavailable:", err);
@@ -92,9 +93,11 @@
 
   function measureFlux() {
     analyser.getByteFrequencyData(freqData);
-    const energy = bandMean(kickStart, kickEnd) * 0.9 + bandMean(kickEnd, bodyEnd) * 0.1;
+    const kick = bandMean(kickStart, kickEnd);
+    const bodyBand = bandMean(kickEnd, bodyEnd);
+    const energy = kick * 0.86 + bodyBand * 0.14;
     const flux = Math.max(0, energy - kickFloor);
-    kickFloor = kickFloor * 0.88 + energy * 0.12;
+    kickFloor = kickFloor * 0.9 + energy * 0.1;
 
     fluxHistory.push(flux);
     if (fluxHistory.length > FLUX_HISTORY) fluxHistory.shift();
@@ -119,20 +122,14 @@
 
   function detectOnset(now, flux) {
     if (now - lastOnsetTime < MIN_ONSET_GAP) return false;
-
     const { mean, std } = fluxStats();
-    const threshold = Math.max(0.01, mean * 1.45 + std * 1.05);
-    if (flux < threshold) return false;
-
+    if (flux < Math.max(0.012, mean * 1.5 + std * 1.1)) return false;
     lastOnsetTime = now;
-    recentOnsets.push(now);
-    if (recentOnsets.length > ONSET_LIMIT) recentOnsets.shift();
     return true;
   }
 
   function pushEnvelope(now, flux) {
     envPeak = Math.max(envPeak, flux);
-
     if (!lastEnvTime) {
       lastEnvTime = now;
       return;
@@ -152,17 +149,6 @@
     return env[(start + indexFromOldest) % ENV_SIZE];
   }
 
-  function autocorr(lag) {
-    const count = envFilled - lag;
-    if (count < 32) return 0;
-
-    let sum = 0;
-    for (let i = lag; i < envFilled; i += 1) {
-      sum += envAt(i) * envAt(i - lag);
-    }
-    return sum / count;
-  }
-
   function foldBpm(bpm) {
     let value = bpm;
     while (value < MIN_BPM) value *= 2;
@@ -177,149 +163,101 @@
   }
 
   function songPrior(bpm) {
-    const logRatio = Math.log(bpm / 115);
-    return Math.exp(-0.5 * (logRatio / 0.27) ** 2);
+    const logRatio = Math.log(bpm / 118);
+    return Math.exp(-0.5 * (logRatio / 0.3) ** 2);
   }
 
-  function inSweetSpot(bpm) {
-    return bpm >= 92 && bpm <= 142;
-  }
+  function combScore(periodLag) {
+    if (periodLag < 4 || envFilled < periodLag * 3) return { score: 0, phase: 0 };
 
-  function alignmentScore(bpm) {
-    const period = 60000 / bpm;
-    if (recentOnsets.length < 8) return 0;
+    let best = 0;
+    let bestPhase = 0;
+    const step = periodLag > 50 ? 2 : 1;
 
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < recentOnsets.length; i += 1) {
-      const angle = ((recentOnsets[i] % period) / period) * Math.PI * 2;
-      x += Math.cos(angle);
-      y += Math.sin(angle);
-    }
-    return Math.hypot(x, y) / recentOnsets.length;
-  }
-
-  function refineByGrid(seed, windowBpm, step) {
-    let bestBpm = seed;
-    let bestScore = -Infinity;
-
-    for (let bpm = seed - windowBpm; bpm <= seed + windowBpm; bpm += step) {
-      if (bpm < MIN_BPM || bpm > MAX_BPM) continue;
-      const score = alignmentScore(bpm) - Math.abs(bpm - seed) * 0.0008;
-      if (score > bestScore) {
-        bestScore = score;
-        bestBpm = bpm;
+    for (let phase = 0; phase < periodLag; phase += step) {
+      let sum = 0;
+      let count = 0;
+      for (let i = phase; i < envFilled; i += periodLag) {
+        sum += envAt(i);
+        count += 1;
+      }
+      const score = count ? sum / count : 0;
+      if (score > best) {
+        best = score;
+        bestPhase = phase;
       }
     }
 
-    return bestBpm;
+    return { score: best, phase: bestPhase };
   }
 
-  function pairwiseIoiBpm() {
-    if (recentOnsets.length < 8) return null;
-
-    const weights = new Map();
-    for (let i = 0; i < recentOnsets.length; i += 1) {
-      for (let j = i + 1; j < Math.min(i + 7, recentOnsets.length); j += 1) {
-        let dt = recentOnsets[j] - recentOnsets[i];
-        while (dt < 330) dt *= 2;
-        while (dt > 760) dt /= 2;
-        if (dt < 330 || dt > 760) continue;
-        const bin = Math.round(dt / 6) * 6;
-        weights.set(bin, (weights.get(bin) || 0) + 1);
-      }
-    }
-
-    let bestBin = 0;
-    let bestWeight = 0;
-    weights.forEach((count, bin) => {
-      const score =
-        (count +
-          (weights.get(bin - 6) || 0) * 0.6 +
-          (weights.get(bin + 6) || 0) * 0.6) *
-        songPrior(60000 / bin);
-      if (score > bestWeight) {
-        bestWeight = score;
-        bestBin = bin;
-      }
-    });
-
-    if (bestWeight < 5) return null;
-    return 60000 / bestBin;
+  function scoreBpm(bpm) {
+    const periodLag = 60000 / bpm / ENV_MS;
+    const comb = combScore(Math.round(periodLag));
+    return {
+      bpm,
+      score: comb.score * songPrior(bpm),
+      raw: comb.score,
+      phase: comb.phase,
+    };
   }
 
-  function autocorrBpm() {
-    if (envFilled < MIN_ENV_FOR_TEMPO) return null;
+  function pickMetrical(candidate) {
+    let best = candidate;
 
-    const minLag = Math.round(60000 / MAX_BPM / ENV_MS);
-    const maxLag = Math.round(60000 / MIN_BPM / ENV_MS);
-    let bestLag = 0;
-    let bestScore = 0;
-    let second = 0;
-
-    for (let lag = minLag; lag <= maxLag; lag += 1) {
-      const score = autocorr(lag) + autocorr(lag * 2) * 0.35;
-      if (score > bestScore) {
-        second = bestScore;
-        bestScore = score;
-        bestLag = lag;
-      } else if (score > second) {
-        second = score;
-      }
-    }
-
-    if (bestLag < 2 || bestScore < 1e-5) return null;
-
-    const prev = autocorr(bestLag - 1);
-    const next = autocorr(bestLag + 1);
-    const denom = prev - 2 * bestScore + next;
-    const shift = denom === 0 ? 0 : (prev - next) / (2 * denom);
-    const lag = bestLag + Math.max(-0.45, Math.min(0.45, shift));
-    const prominence = (bestScore - second) / (bestScore + 1e-6);
-
-    return { bpm: foldBpm(60000 / (lag * ENV_MS)), prominence };
-  }
-
-  function chooseMetricalBpm(bpm) {
-    const options = [foldBpm(bpm)];
     for (let i = 0; i < RATIOS.length; i += 1) {
-      const candidate = foldBpm(bpm * RATIOS[i]);
-      if (candidate >= MIN_BPM && candidate <= MAX_BPM) options.push(candidate);
-    }
-
-    let best = options[0];
-    let bestScore = alignmentScore(best) * songPrior(best);
-
-    for (let i = 1; i < options.length; i += 1) {
-      const candidate = options[i];
-      const score = alignmentScore(candidate) * songPrior(candidate);
-      if (score > bestScore * 1.06) {
-        best = candidate;
-        bestScore = score;
-      } else if (score > bestScore * 0.92 && inSweetSpot(candidate) && !inSweetSpot(best)) {
-        best = candidate;
-        bestScore = score;
+      const bpm = foldBpm(candidate.bpm * RATIOS[i]);
+      if (bpm < MIN_BPM || bpm > MAX_BPM) continue;
+      const option = scoreBpm(bpm);
+      if (option.score > best.score * 1.12) best = option;
+      else if (
+        option.score > best.score * 0.88 &&
+        bpm >= 92 &&
+        bpm <= 140 &&
+        (best.bpm < 92 || best.bpm > 145)
+      ) {
+        best = option;
       }
     }
 
-    if (best > 148) {
-      const twoThirds = foldBpm(best * (2 / 3));
-      if (inSweetSpot(twoThirds) && alignmentScore(twoThirds) >= alignmentScore(best) * 0.5) {
-        return twoThirds;
+    if (best.bpm > 148) {
+      const slower = scoreBpm(foldBpm(best.bpm * (2 / 3)));
+      if (slower.bpm >= 90 && slower.bpm <= 140 && slower.raw >= best.raw * 0.55) {
+        return slower;
       }
     }
 
     return best;
   }
 
-  function metricalRelative(a, b) {
-    if (!a || !b) return false;
-    const ratio = a > b ? a / b : b / a;
-    return (
-      Math.abs(ratio - 2) < 0.09 ||
-      Math.abs(ratio - 1.5) < 0.09 ||
-      Math.abs(ratio - 4 / 3) < 0.08
-    );
+  function estimateFromComb() {
+    if (envFilled < MIN_ENV_FOR_TEMPO) return null;
+
+    let best = null;
+    for (let bpm = MIN_BPM; bpm <= MAX_BPM; bpm += 1) {
+      const candidate = scoreBpm(bpm);
+      if (!best || candidate.score > best.score) best = candidate;
+    }
+    if (!best || best.raw < 1e-5) return null;
+
+    let refined = best;
+    for (let bpm = best.bpm - 2; bpm <= best.bpm + 2; bpm += 0.25) {
+      if (bpm < MIN_BPM || bpm > MAX_BPM) continue;
+      const candidate = scoreBpm(bpm);
+      if (candidate.score > refined.score) refined = candidate;
+    }
+
+    const chosen = pickMetrical(refined);
+    if (hintBpm) {
+      const hint = scoreBpm(hintBpm);
+      const close = Math.abs(chosen.bpm - hintBpm) / hintBpm <= 0.07;
+      const related = RATIOS.some(
+        (ratio) => Math.abs(chosen.bpm / hintBpm - ratio) < 0.08
+      );
+      if (close || related) return hint;
+    }
+
+    return chosen;
   }
 
   function renderBpm() {
@@ -333,116 +271,95 @@
     bpmEl.textContent = `${displayBpm} BPM`;
   }
 
-  function applyLockedBpm(now, bpm, confidence) {
-    estimatedBpm = bpm;
+  function applyLockedBpm(now, bpm, confidence, phaseLag) {
     displayBpm = Math.round(bpm);
     animBpm = pickAnimBpm(bpm);
     tempoConfidence = confidence;
     tempoLocked = true;
+    bestPhaseLag = phaseLag || bestPhaseLag;
 
     const targetPeriod = 60000 / animBpm;
-    if (beatPeriod === null) {
-      beatPeriod = targetPeriod;
-      nextPulseTime = now + beatPeriod;
-    } else if (Math.abs(targetPeriod - beatPeriod) > 8) {
-      beatPeriod = targetPeriod;
+    beatPeriod = targetPeriod;
+
+    if (envFilled > 4) {
+      const lastBeatIndex =
+        bestPhaseLag +
+        Math.floor((envFilled - 1 - bestPhaseLag) / Math.round(targetPeriod / ENV_MS)) *
+          Math.round(targetPeriod / ENV_MS);
+      const lastBeatTime = lastEnvTime - (envFilled - lastBeatIndex) * ENV_MS;
+      nextPulseTime = lastBeatTime + targetPeriod;
+      while (nextPulseTime <= now) nextPulseTime += targetPeriod;
+    } else if (!nextPulseTime) {
+      nextPulseTime = now + targetPeriod;
     }
 
     applyPulseDuration();
     renderBpm();
   }
 
-  function setHint(bpm) {
-    const value = foldBpm(Number(bpm));
-    if (!value) return;
-    hintBpm = value;
+  function modeVote() {
+    if (votes.length < VOTES_TO_LOCK) return null;
+    const counts = new Map();
+    for (let i = 0; i < votes.length; i += 1) {
+      counts.set(votes[i], (counts.get(votes[i]) || 0) + 1);
+    }
+    let mode = null;
+    let top = 0;
+    counts.forEach((count, bpm) => {
+      if (count > top) {
+        top = count;
+        mode = bpm;
+      }
+    });
+    return top >= VOTES_TO_LOCK ? mode : null;
   }
 
-  function preferHint(audioBpm) {
-    if (!hintBpm || !audioBpm) return audioBpm;
-    const close = Math.abs(audioBpm - hintBpm) / hintBpm <= 0.07;
-    if (close || metricalRelative(audioBpm, hintBpm)) return Math.round(hintBpm);
-    return audioBpm;
-  }
+  function estimateTempo(now) {
+    const guess = estimateFromComb();
+    if (!guess) return;
 
-  function commitTempo(now, bpm, confidence) {
-    const nextBpm = Math.round(
-      preferHint(refineByGrid(chooseMetricalBpm(bpm), 4, 0.5))
-    );
+    const rounded = Math.round(guess.bpm);
+    votes.push(rounded);
+    if (votes.length > VOTE_WINDOW) votes.shift();
+
+    const confidence = Math.min(1, guess.raw * 8 + 0.2);
 
     if (!tempoLocked) {
-      applyLockedBpm(now, nextBpm, confidence);
+      const stable = modeVote();
+      if (stable) applyLockedBpm(now, stable, confidence, guess.phase);
       return;
     }
 
-    if (nextBpm === displayBpm) {
+    if (rounded === displayBpm) {
       pendingBpm = null;
+      bestPhaseLag = guess.phase;
       return;
     }
 
-    if (pendingBpm !== nextBpm) {
-      pendingBpm = nextBpm;
+    if (pendingBpm !== rounded) {
+      pendingBpm = rounded;
       pendingSince = now;
       return;
     }
 
-    const wait = metricalRelative(nextBpm, displayBpm) ? 2200 : 3200;
-    if (now - pendingSince < wait) return;
+    if (now - pendingSince < HOLD_MS) return;
+    if ((modeVote() || rounded) !== rounded) return;
 
-    applyLockedBpm(now, nextBpm, confidence);
+    applyLockedBpm(now, rounded, confidence, guess.phase);
     pendingBpm = null;
   }
 
-  function estimateTempo(now) {
-    const iois = pairwiseIoiBpm();
-    const ac = autocorrBpm();
-    if (!iois && !ac) return;
-
-    let seed = iois || ac.bpm;
-    if (iois && ac) {
-      const close = Math.abs(iois - ac.bpm) / iois < 0.08;
-      seed = close ? iois * 0.65 + ac.bpm * 0.35 : iois;
-    }
-
-    const refined = refineByGrid(chooseMetricalBpm(seed), 6, 0.5);
-    const confidence = Math.max(
-      ac?.prominence || 0,
-      alignmentScore(refined)
-    );
-
-    if (
-      hintBpm &&
-      refined &&
-      !metricalRelative(refined, hintBpm) &&
-      Math.abs(refined - hintBpm) / hintBpm > 0.08
-    ) {
-      if (!hintDisagreeSince) hintDisagreeSince = now;
-      else if (now - hintDisagreeSince >= 4000) {
-        hintBpm = null;
-        hintDisagreeSince = 0;
-      }
-    } else {
-      hintDisagreeSince = 0;
-    }
-
-    if (!tempoLocked) {
-      if (recentOnsets.length < 12 || confidence < 0.32) return;
-      commitTempo(now, refined, confidence);
-      return;
-    }
-
-    commitTempo(now, refined, confidence);
+  function setHint(bpm) {
+    const value = foldBpm(Number(bpm));
+    if (value) hintBpm = value;
   }
 
   function nudgePhase(now) {
     if (!beatPeriod || !nextPulseTime) return;
-
     let error = (now - nextPulseTime) % beatPeriod;
     if (error > beatPeriod / 2) error -= beatPeriod;
     if (error < -beatPeriod / 2) error += beatPeriod;
-    if (Math.abs(error) < beatPeriod * 0.3) {
-      nextPulseTime += error * 0.4;
-    }
+    if (Math.abs(error) < beatPeriod * 0.28) nextPulseTime += error * 0.35;
   }
 
   function pulseStrength(flux) {
@@ -486,9 +403,7 @@
       return;
     }
 
-    if (onset && now - lastPulseTime >= 430) {
-      triggerPulse(flux);
-    }
+    if (onset && now - lastPulseTime >= 440) triggerPulse(flux);
   }
 
   function tick() {
@@ -533,38 +448,23 @@
     lastTempoUpdate = 0;
     pendingBpm = null;
     pendingSince = 0;
-    hintDisagreeSince = 0;
     animBpm = null;
     beatPeriod = null;
     nextPulseTime = 0;
-    recentOnsets = [];
+    votes = [];
+    bestPhaseLag = 0;
     window.clearTimeout(pulseClearTimer);
 
-    if (!keepHint) {
-      hintBpm = null;
-      estimatedBpm = null;
-      displayBpm = null;
-      tempoConfidence = 0;
-      tempoLocked = false;
-    } else if (hintBpm) {
-      applyLockedBpm(performance.now(), hintBpm, 1);
-    } else {
-      estimatedBpm = null;
-      displayBpm = null;
-      tempoConfidence = 0;
-      tempoLocked = false;
-    }
-
+    if (!keepHint) hintBpm = null;
+    displayBpm = null;
+    tempoConfidence = 0;
+    tempoLocked = false;
     renderBpm();
   }
 
   async function start() {
     if (!init()) return;
-
-    if (audioCtx.state === "suspended") {
-      await audioCtx.resume();
-    }
-
+    if (audioCtx.state === "suspended") await audioCtx.resume();
     resetTempo(true);
     body.classList.add("is-vibing");
     if (!rafId) rafId = requestAnimationFrame(tick);
@@ -592,7 +492,6 @@
         pulseBpm: animBpm ? Number(animBpm.toFixed(1)) : null,
         confidence: Number(tempoConfidence.toFixed(2)),
         locked: tempoLocked,
-        source: hintBpm ? "catalog" : "audio",
       };
     },
   };

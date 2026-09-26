@@ -8,8 +8,6 @@ const SHOUTCAST_STREAMS = {
 };
 
 const artCache = new Map();
-const deezerTrackCache = new Map();
-const bpmCache = new Map();
 let lastRawTitle = null;
 
 function isDjLilly(artist) {
@@ -93,35 +91,10 @@ async function searchItunes(artist, track) {
   return null;
 }
 
-function isGenericMetadata(metadata) {
-  const artist = normalizeForMatch(metadata.artist);
-  const track = normalizeForMatch(metadata.track);
-  const raw = normalizeForMatch(metadata.raw);
-  if (!artist || !track) return true;
-  if (isDjLilly(metadata.artist)) return true;
-
-  const generic =
-    /^(various|various artists|va|unknown|unknown artist|n ?a|id|tbd|loading|offline|live mix|dj mix|guest mix|radio mix|mix|set|live set)$/;
-  if (generic.test(artist) || generic.test(track) || generic.test(raw)) return true;
-  if (/\b(live mix|dj set|radio rip|continuous mix|guest mix)\b/.test(raw)) return true;
-  return artist.length < 2 || track.length < 2;
-}
-
-function isLooseVersion(title) {
-  return /\b(live|remix|mix|edit|cover|sped up|slowed|nightcore|instrumental|karaoke|mashup)\b/i.test(
-    title
-  );
-}
-
-async function searchDeezerBest(artist, track) {
-  const cacheKey = `${artist}|${track}`;
-  if (deezerTrackCache.has(cacheKey)) return deezerTrackCache.get(cacheKey);
-
+async function searchDeezer(artist, track) {
   const queries = [];
-  if (artist && track) {
-    queries.push(`artist:"${artist}" track:"${track}"`);
-    queries.push(`${artist} ${track}`);
-  }
+
+  if (artist && track) queries.push(`${artist} ${track}`);
   if (track) queries.push(track);
 
   for (const query of queries) {
@@ -132,80 +105,11 @@ async function searchDeezerBest(artist, track) {
     if (!data.data?.length) continue;
 
     const best = pickBestResult(data.data, artist, track, "deezer");
-    if (best) {
-      deezerTrackCache.set(cacheKey, best);
-      return best;
-    }
+    if (best?.album?.cover_xl) return best.album.cover_xl;
+    if (best?.album?.cover_big) return best.album.cover_big;
   }
 
-  deezerTrackCache.set(cacheKey, null);
   return null;
-}
-
-async function searchDeezer(artist, track) {
-  const best = await searchDeezerBest(artist, track);
-  return best?.album?.cover_xl || best?.album?.cover_big || null;
-}
-
-function foldPublishedBpm(bpm) {
-  let value = Number(bpm);
-  if (!Number.isFinite(value) || value < 50 || value > 240) return null;
-  while (value < 72) value *= 2;
-  while (value > 180) value /= 2;
-  return value;
-}
-
-async function fetchTrackBpm(metadata) {
-  const { artist, track } = metadata;
-  const cacheKey = `${artist}|${track}`;
-
-  if (bpmCache.has(cacheKey)) return bpmCache.get(cacheKey);
-  if (isGenericMetadata(metadata)) {
-    bpmCache.set(cacheKey, null);
-    return null;
-  }
-
-  try {
-    const queries = [`artist:"${artist}" track:"${track}"`, `${artist} ${track}`];
-    const streamIsLoose = isLooseVersion(`${artist} ${track}`);
-
-    for (const query of queries) {
-      const res = await fetch(
-        `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=8`
-      );
-      const data = await res.json();
-      if (!data.data?.length) continue;
-
-      const ranked = data.data
-        .map((result) => ({
-          result,
-          score: scoreTrackResult(result, artist, track, "deezer"),
-        }))
-        .filter((entry) => entry.score >= 16)
-        .sort((a, b) => {
-          const aLoose = isLooseVersion(a.result.title);
-          const bLoose = isLooseVersion(b.result.title);
-          if (!streamIsLoose && aLoose !== bLoose) return aLoose ? 1 : -1;
-          return b.score - a.score;
-        });
-
-      for (const entry of ranked.slice(0, 4)) {
-        const trackRes = await fetch(`https://api.deezer.com/track/${entry.result.id}`);
-        const trackData = await trackRes.json();
-        const bpm = foldPublishedBpm(trackData.bpm);
-        if (bpm) {
-          bpmCache.set(cacheKey, bpm);
-          return bpm;
-        }
-      }
-    }
-
-    bpmCache.set(cacheKey, null);
-    return null;
-  } catch (err) {
-    console.warn("BPM lookup failed:", err);
-    return null;
-  }
 }
 
 async function fetchAlbumArt(metadata, mountPoint) {
@@ -735,12 +639,8 @@ async function setTitle(mountPoint) {
 
     updateNowPlaying(metadata, false);
 
-    const [artUrl, bpm] = await Promise.all([
-      fetchAlbumArt(metadata, mountPoint),
-      fetchTrackBpm(metadata),
-    ]);
+    const artUrl = await fetchAlbumArt(metadata, mountPoint);
     setAlbumArt(artUrl || defaultAlbumArt);
-    if (bpm) window.lillyBeat?.setHint(bpm);
   } catch (err) {
     console.error("Error in setTitle:", err);
     lastRawTitle = null;
