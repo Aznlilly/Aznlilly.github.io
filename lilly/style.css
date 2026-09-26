@@ -316,6 +316,15 @@ body.lilly-player.beat-hit .electric-border__glow {
   .electric-border {
     opacity: 0.35;
   }
+
+  body.lilly-player.beat-hit #bg-blur,
+  body.lilly-player.beat-hit .player-card.visible,
+  body.lilly-player.beat-hit .art-frame,
+  body.lilly-player.beat-hit .live-dot,
+  body.lilly-player.beat-hit .station-label,
+  body.lilly-player.beat-hit #track-title {
+    animation: none;
+  }
 }
 
 .player-card.visible {
@@ -325,6 +334,11 @@ body.lilly-player.beat-hit .electric-border__glow {
 
 body.lilly-player.beat-hit .player-card.visible {
   animation: beat-card var(--pulse-duration) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.lilly-player.beat-hit .station-label,
+body.lilly-player.beat-hit #track-title {
+  animation: beat-copy var(--pulse-duration) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .art-frame {
@@ -407,18 +421,27 @@ body.lilly-player.beat-hit .live-dot {
 
 @keyframes beat-card {
   0% {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 20px 56px var(--theme-shadow);
+    box-shadow: 0 20px 56px var(--theme-shadow),
+      0 0 0 1px var(--theme-card-glow) inset;
   }
   22% {
-    transform: translateY(0) scale(calc(1 + 0.045 * var(--pulse-power)));
     box-shadow: 0 28px 72px var(--theme-shadow),
-      0 0 calc(40px * var(--pulse-power)) var(--theme-card-glow),
+      0 0 calc(48px * var(--pulse-power)) var(--theme-electric-glow),
       0 0 0 1px var(--theme-card-border) inset;
   }
   100% {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 20px 56px var(--theme-shadow);
+    box-shadow: 0 20px 56px var(--theme-shadow),
+      0 0 0 1px var(--theme-card-glow) inset;
+  }
+}
+
+@keyframes beat-copy {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  22% {
+    filter: brightness(calc(1 + 0.22 * var(--pulse-power)));
   }
 }
 
@@ -533,6 +556,16 @@ body.lilly-player.beat-hit .live-dot {
   align-items: center;
   gap: 0.75rem;
   margin-top: 1.25rem;
+  position: relative;
+  z-index: 2;
+  transform: none;
+}
+
+body.lilly-player.beat-hit .controls,
+body.lilly-player.beat-hit .volume-group,
+body.lilly-player.beat-hit #volume-slider {
+  animation: none;
+  transform: none;
 }
 
 .icon-button {
