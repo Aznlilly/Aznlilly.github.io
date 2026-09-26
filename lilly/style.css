@@ -505,6 +505,13 @@ body.lilly-player.beat-hit .live-dot {
   transition: color 1.1s ease;
 }
 
+#track-bpm {
+  margin-left: 0.55rem;
+  letter-spacing: 0.08em;
+  color: var(--theme-text-muted);
+  font-weight: 600;
+}
+
 #track-artist {
   margin: 0 0 0.2rem;
   font-size: 0.9rem;
