@@ -43,6 +43,11 @@
   let pulseClearTimer = 0;
 
   let estimatedBpm = null;
+  let displayBpm = null;
+  let hintBpm = null;
+  let pendingBpm = null;
+  let pendingSince = 0;
+  let hintDisagreeSince = 0;
   let animBpm = null;
   let beatPeriod = null;
   let nextPulseTime = 0;
@@ -319,36 +324,73 @@
 
   function renderBpm() {
     if (!bpmEl) return;
-    if (!estimatedBpm || !tempoLocked) {
+    if (!displayBpm) {
       bpmEl.hidden = true;
       bpmEl.textContent = "";
       return;
     }
     bpmEl.hidden = false;
-    bpmEl.textContent = `${Math.round(estimatedBpm)} BPM`;
+    bpmEl.textContent = `${displayBpm} BPM`;
   }
 
-  function commitTempo(now, bpm, confidence) {
-    const nextBpm = refineByGrid(chooseMetricalBpm(bpm), 5, 0.25);
-    const jumped = estimatedBpm && Math.abs(nextBpm - estimatedBpm) / estimatedBpm > 0.12;
-    const blend = jumped ? 0.8 : tempoLocked ? 0.22 : 0.45;
-    estimatedBpm = estimatedBpm
-      ? estimatedBpm + (nextBpm - estimatedBpm) * blend
-      : nextBpm;
-    animBpm = pickAnimBpm(estimatedBpm);
-    tempoConfidence = tempoConfidence * 0.4 + confidence * 0.6;
+  function applyLockedBpm(now, bpm, confidence) {
+    estimatedBpm = bpm;
+    displayBpm = Math.round(bpm);
+    animBpm = pickAnimBpm(bpm);
+    tempoConfidence = confidence;
     tempoLocked = true;
 
     const targetPeriod = 60000 / animBpm;
     if (beatPeriod === null) {
       beatPeriod = targetPeriod;
       nextPulseTime = now + beatPeriod;
-    } else {
-      beatPeriod += (targetPeriod - beatPeriod) * 0.2;
+    } else if (Math.abs(targetPeriod - beatPeriod) > 8) {
+      beatPeriod = targetPeriod;
     }
 
     applyPulseDuration();
     renderBpm();
+  }
+
+  function setHint(bpm) {
+    const value = foldBpm(Number(bpm));
+    if (!value) return;
+    hintBpm = value;
+  }
+
+  function preferHint(audioBpm) {
+    if (!hintBpm || !audioBpm) return audioBpm;
+    const close = Math.abs(audioBpm - hintBpm) / hintBpm <= 0.07;
+    if (close || metricalRelative(audioBpm, hintBpm)) return Math.round(hintBpm);
+    return audioBpm;
+  }
+
+  function commitTempo(now, bpm, confidence) {
+    const nextBpm = Math.round(
+      preferHint(refineByGrid(chooseMetricalBpm(bpm), 4, 0.5))
+    );
+
+    if (!tempoLocked) {
+      applyLockedBpm(now, nextBpm, confidence);
+      return;
+    }
+
+    if (nextBpm === displayBpm) {
+      pendingBpm = null;
+      return;
+    }
+
+    if (pendingBpm !== nextBpm) {
+      pendingBpm = nextBpm;
+      pendingSince = now;
+      return;
+    }
+
+    const wait = metricalRelative(nextBpm, displayBpm) ? 2200 : 3200;
+    if (now - pendingSince < wait) return;
+
+    applyLockedBpm(now, nextBpm, confidence);
+    pendingBpm = null;
   }
 
   function estimateTempo(now) {
@@ -362,22 +404,34 @@
       seed = close ? iois * 0.65 + ac.bpm * 0.35 : iois;
     }
 
-    const refined = refineByGrid(chooseMetricalBpm(seed), 8, 0.25);
+    const refined = refineByGrid(chooseMetricalBpm(seed), 6, 0.5);
     const confidence = Math.max(
       ac?.prominence || 0,
       alignmentScore(refined)
     );
 
+    if (
+      hintBpm &&
+      refined &&
+      !metricalRelative(refined, hintBpm) &&
+      Math.abs(refined - hintBpm) / hintBpm > 0.08
+    ) {
+      if (!hintDisagreeSince) hintDisagreeSince = now;
+      else if (now - hintDisagreeSince >= 4000) {
+        hintBpm = null;
+        hintDisagreeSince = 0;
+      }
+    } else {
+      hintDisagreeSince = 0;
+    }
+
     if (!tempoLocked) {
-      if (recentOnsets.length < 10 || confidence < 0.28) return;
+      if (recentOnsets.length < 12 || confidence < 0.32) return;
       commitTempo(now, refined, confidence);
       return;
     }
 
-    const delta = Math.abs(refined - estimatedBpm) / estimatedBpm;
-    if (delta <= 0.09 || confidence > 0.55 || metricalRelative(refined, estimatedBpm)) {
-      commitTempo(now, refined, confidence);
-    }
+    commitTempo(now, refined, confidence);
   }
 
   function nudgePhase(now) {
@@ -466,7 +520,7 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  function resetTempo() {
+  function resetTempo(keepHint) {
     kickFloor = 0;
     fluxHistory = [];
     env.fill(0);
@@ -477,14 +531,30 @@
     lastOnsetTime = 0;
     lastPulseTime = 0;
     lastTempoUpdate = 0;
-    estimatedBpm = null;
+    pendingBpm = null;
+    pendingSince = 0;
+    hintDisagreeSince = 0;
     animBpm = null;
     beatPeriod = null;
     nextPulseTime = 0;
-    tempoConfidence = 0;
-    tempoLocked = false;
     recentOnsets = [];
     window.clearTimeout(pulseClearTimer);
+
+    if (!keepHint) {
+      hintBpm = null;
+      estimatedBpm = null;
+      displayBpm = null;
+      tempoConfidence = 0;
+      tempoLocked = false;
+    } else if (hintBpm) {
+      applyLockedBpm(performance.now(), hintBpm, 1);
+    } else {
+      estimatedBpm = null;
+      displayBpm = null;
+      tempoConfidence = 0;
+      tempoLocked = false;
+    }
+
     renderBpm();
   }
 
@@ -495,7 +565,7 @@
       await audioCtx.resume();
     }
 
-    resetTempo();
+    resetTempo(true);
     body.classList.add("is-vibing");
     if (!rafId) rafId = requestAnimationFrame(tick);
   }
@@ -515,12 +585,14 @@
     start,
     stop,
     reset,
+    setHint,
     getTempo() {
       return {
-        bpm: estimatedBpm ? Number(estimatedBpm.toFixed(1)) : null,
+        bpm: displayBpm,
         pulseBpm: animBpm ? Number(animBpm.toFixed(1)) : null,
         confidence: Number(tempoConfidence.toFixed(2)),
         locked: tempoLocked,
+        source: hintBpm ? "catalog" : "audio",
       };
     },
   };
