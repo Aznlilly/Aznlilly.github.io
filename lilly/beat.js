@@ -10,8 +10,8 @@
   const ENV_MS = 10;
   const ENV_SECONDS = 8;
   const ENV_SIZE = Math.round((ENV_SECONDS * 1000) / ENV_MS);
-  const MIN_BPM = 76;
-  const MAX_BPM = 172;
+  const MIN_BPM = 68;
+  const MAX_BPM = 180;
   const COMFY_BPM = 160;
   const TEMPO_UPDATE_MS = 450;
   const MIN_ENV_FOR_TEMPO = Math.round(ENV_SIZE * 0.5);
@@ -20,7 +20,6 @@
   const VOTE_WINDOW = 7;
   const VOTES_TO_LOCK = 5;
   const HOLD_MS = 4500;
-  const RATIOS = [0.5, 2 / 3, 0.75, 4 / 3, 1.5, 2];
 
   let audioCtx = null;
   let analyser = null;
@@ -74,8 +73,8 @@
       freqData = new Uint8Array(analyser.frequencyBinCount);
       const hzPerBin = audioCtx.sampleRate / analyser.fftSize;
       kickStart = Math.max(1, Math.floor(40 / hzPerBin));
-      kickEnd = Math.max(kickStart + 2, Math.ceil(100 / hzPerBin));
-      bodyEnd = Math.max(kickEnd + 2, Math.ceil(160 / hzPerBin));
+      kickEnd = Math.max(kickStart + 2, Math.ceil(85 / hzPerBin));
+      bodyEnd = Math.max(kickEnd + 2, Math.ceil(140 / hzPerBin));
       return true;
     } catch (err) {
       console.warn("Beat visualizer unavailable:", err);
@@ -95,7 +94,7 @@
     analyser.getByteFrequencyData(freqData);
     const kick = bandMean(kickStart, kickEnd);
     const bodyBand = bandMean(kickEnd, bodyEnd);
-    const energy = kick * 0.86 + bodyBand * 0.14;
+    const energy = kick * 0.92 + bodyBand * 0.08;
     const flux = Math.max(0, energy - kickFloor);
     kickFloor = kickFloor * 0.9 + energy * 0.1;
 
@@ -162,72 +161,45 @@
     return value;
   }
 
-  function songPrior(bpm) {
-    const logRatio = Math.log(bpm / 118);
-    return Math.exp(-0.5 * (logRatio / 0.3) ** 2);
-  }
-
   function combScore(periodLag) {
     if (periodLag < 4 || envFilled < periodLag * 3) return { score: 0, phase: 0 };
 
-    let best = 0;
+    const half = Math.max(1, Math.round(periodLag / 2));
+    let best = -1;
     let bestPhase = 0;
     const step = periodLag > 50 ? 2 : 1;
 
     for (let phase = 0; phase < periodLag; phase += step) {
-      let sum = 0;
+      let on = 0;
+      let off = 0;
       let count = 0;
       for (let i = phase; i < envFilled; i += periodLag) {
-        sum += envAt(i);
+        on += envAt(i);
+        const mid = i + half;
+        if (mid < envFilled) off += envAt(mid);
         count += 1;
       }
-      const score = count ? sum / count : 0;
-      if (score > best) {
-        best = score;
+      if (!count) continue;
+      on /= count;
+      off /= count;
+      const clarity = (on - off) * Math.sqrt(count);
+      if (clarity > best) {
+        best = clarity;
         bestPhase = phase;
       }
     }
 
-    return { score: best, phase: bestPhase };
+    return { score: Math.max(0, best), phase: bestPhase };
   }
 
   function scoreBpm(bpm) {
-    const periodLag = 60000 / bpm / ENV_MS;
-    const comb = combScore(Math.round(periodLag));
+    const comb = combScore(Math.round(60000 / bpm / ENV_MS));
     return {
       bpm,
-      score: comb.score * songPrior(bpm),
+      score: comb.score,
       raw: comb.score,
       phase: comb.phase,
     };
-  }
-
-  function pickMetrical(candidate) {
-    let best = candidate;
-
-    for (let i = 0; i < RATIOS.length; i += 1) {
-      const bpm = foldBpm(candidate.bpm * RATIOS[i]);
-      if (bpm < MIN_BPM || bpm > MAX_BPM) continue;
-      const option = scoreBpm(bpm);
-      if (option.score > best.score * 1.12) best = option;
-      else if (
-        option.score > best.score * 0.88 &&
-        bpm >= 92 &&
-        bpm <= 140 &&
-        (best.bpm < 92 || best.bpm > 145)
-      ) {
-        best = option;
-      }
-    }
-
-    if (best.bpm > 148) {
-      const slower = scoreBpm(foldBpm(best.bpm * (2 / 3)));
-      if (slower.bpm >= 90 && slower.bpm <= 140 && slower.raw >= best.raw * 0.55) {
-        return slower;
-      }
-    }
-
-    return best;
   }
 
   function estimateFromComb() {
@@ -238,7 +210,7 @@
       const candidate = scoreBpm(bpm);
       if (!best || candidate.score > best.score) best = candidate;
     }
-    if (!best || best.raw < 1e-5) return null;
+    if (!best || best.raw < 0.04) return null;
 
     let refined = best;
     for (let bpm = best.bpm - 2; bpm <= best.bpm + 2; bpm += 0.25) {
@@ -247,17 +219,7 @@
       if (candidate.score > refined.score) refined = candidate;
     }
 
-    const chosen = pickMetrical(refined);
-    if (hintBpm) {
-      const hint = scoreBpm(hintBpm);
-      const close = Math.abs(chosen.bpm - hintBpm) / hintBpm <= 0.07;
-      const related = RATIOS.some(
-        (ratio) => Math.abs(chosen.bpm / hintBpm - ratio) < 0.08
-      );
-      if (close || related) return hint;
-    }
-
-    return chosen;
+    return refined;
   }
 
   function renderBpm() {
